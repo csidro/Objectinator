@@ -1,0 +1,26 @@
+{
+  "name": "Objectinator",
+  "version": "0.0.1",
+  "description": "Extend Object behavior with history, mapping, etc.",
+  "main": "index.js",
+  "scripts": {
+    "test": "nodeunit tests/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/csidro/Objectinator.git"
+  },
+  "keywords": [
+    "object",
+    "history",
+    "mapping",
+    "prototype",
+    "extend"
+  ],
+  "author": "Oliver Drahota <cydrait@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/csidro/Objectinator/issues"
+  },
+  "homepage": "https://github.com/csidro/Objectinator"
+}
