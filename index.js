@@ -49,7 +49,7 @@ objectoPatronum = (function() {
      */
     missito: function(obj, path, value, create) {
       var key;
-      if (create == null) {
+      if ((create == null) || create === void 0) {
         create = true;
       }
       if (!this.isArray(path)) {
@@ -79,16 +79,23 @@ objectoPatronum = (function() {
     	 * @param path {String}
      */
     evapores: function(obj, path) {
-      var key;
+      var siblings;
       if (!this.isArray(path)) {
-        path = (path.split(".")).reverse().map(this.fixKey);
+        path = (path.split(".")).map(this.fixKey);
       }
-      key = path.pop();
-      if (path.length === 0) {
-        delete obj[key];
-        return;
+      siblings = this.siblingumRevelio(obj, path);
+      if (siblings.length === 0) {
+        path.pop();
+        this.evapores(obj, path);
+      } else {
+        obj = this.invito(obj, path.reverse());
+        if (!this.isObject(obj)) {
+          delete obj[key];
+        }
+        if (this.isArray(obj && this.isNumeric(key))) {
+          obj.splice(key, 1);
+        }
       }
-      return this.evapores(obj[key], path);
     },
 
     /*
@@ -97,38 +104,27 @@ objectoPatronum = (function() {
     	 * @param obj {Object}
      */
     reductoValues: [void 0, null, ""],
-    reducto: function(obj, path, deletion, origin) {
-      var key, _i, _len, _ref, _results;
-      if (path == null) {
+    reducto: function(obj, path, origin) {
+      var key, _, _fn, _i, _len, _ref;
+      if ((path == null) || path === void 0) {
         path = [];
       }
-      if (deletion == null) {
-        deletion = false;
-      }
-      if (origin == null) {
+      if ((origin == null) || origin === void 0) {
         origin = obj;
       }
-      if (!deletion) {
-        if (this.isObject(obj) || this.isArray(obj)) {
-          _ref = Object.keys(obj);
-          _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            key = _ref[_i];
-            _results.push((function(key) {
-              return this.reducto(obj[key], path.push(key, false, origin));
-            })(key));
-          }
-          return _results;
-        } else if (this.reductoValues.indexOf(obj) !== -1) {
-          return this.reducto(obj, path, true, origin);
+      _ = this;
+      if (this.isObject(obj) || this.isArray(obj)) {
+        _ref = Object.keys(obj);
+        _fn = function(key) {
+          path.push(key);
+          _.reducto(obj[key], path, false, origin);
+        };
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          key = _ref[_i];
+          _fn(key);
         }
-      } else {
-        if (this.siblingumRevelio(origin, path.join('.')).length !== 0) {
-          return this.evapores(origin, path.reverse());
-        } else {
-          path.pop();
-          return this.reducto(origin, path, deletion, origin);
-        }
+      } else if (this.reductoValues.indexOf(obj) !== -1) {
+        this.evapores(origin, path);
       }
     },
 
@@ -138,14 +134,15 @@ objectoPatronum = (function() {
     	 * @param path {String}
      */
     siblingumRevelio: function(obj, path) {
-      var key, keyList, parent;
+      var key, parent, siblings;
       if (!this.isArray(path)) {
         path = (path.split(".")).map(this.fixKey);
       }
       key = path.pop();
       parent = this.invito(obj, path.reverse());
-      keyList = Object.keys(parent);
-      return keyList.splice(keyList.indexOf(key), 1);
+      siblings = Object.keys(parent);
+      siblings.splice(siblings.indexOf(key), 1);
+      return siblings;
     }
   };
 })();

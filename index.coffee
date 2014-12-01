@@ -47,7 +47,8 @@ objectoPatronum = (->
 	# @param create {Boolean} - whether it should build non-existent tree or not
 	###
 
-	missito: (obj, path, value, create = true) ->
+	missito: (obj, path, value, create) ->
+		create = true if not create? or create is undefined
 		# reversing the path to use Array::pop()
 		path = (path.split ".").reverse().map(@fixKey) if not @isArray path
 		key = path.pop()
@@ -75,14 +76,17 @@ objectoPatronum = (->
 	###
 
 	evapores: (obj, path) ->
-		path = (path.split ".").reverse().map(@fixKey) if not @isArray path
-		key = path.pop()
-
-		if path.length is 0
-			delete obj[key]
-			return
-
-		@evapores obj[key], path
+		path = (path.split ".").map(@fixKey) if not @isArray path
+		siblings = @siblingumRevelio obj, path
+		
+		if siblings.length is 0
+			path.pop()
+			@evapores obj, path
+		else
+			obj = @invito obj, path.reverse()
+			delete obj[key] if not @isObject obj
+			obj.splice( key, 1 ) if @isArray obj and @isNumeric key
+		return
 
 
 	###
@@ -92,30 +96,25 @@ objectoPatronum = (->
 	###
 
 	reductoValues: [undefined, null, ""]
-	reducto: (obj, path = [], deletion = false, origin = obj) ->
+	reducto: (obj, path, origin) ->
+		path = [] if not path? or path is undefined
+		origin = obj if not origin? or origin is undefined
 
-		if not deletion
-			# check if obj is object or array
-			if @isObject( obj ) or @isArray( obj )
-				# loop through obj keys and start the reduction process
-				for key in Object.keys obj
-					do (key) ->
-						@reducto obj[key], path.push key, false, origin
+		_ = @
+		
+		# check if obj is object or array
+		if @isObject( obj ) or @isArray( obj )
+			# loop through obj keys and start the reduction process
+			for key in Object.keys obj
+				do (key) ->
+					path.push(key)
+					_.reducto obj[key], path, false, origin
+					return
 
-			# only delete path if value is in @reductoValues
-			else if @reductoValues.indexOf( obj ) isnt -1
-				@reducto obj, path, true, origin
-
-		else 
-			# if property has siblings, remove property and stop
-			if @siblingumRevelio( origin, path.join('.') ).length isnt 0
-				@evapores origin, path.reverse()
-
-			# else check parent
-			else
-				path.pop()
-				@reducto origin, path, deletion, origin
-
+		# only delete path if value is in @reductoValues
+		else if @reductoValues.indexOf( obj ) isnt -1
+			@evapores origin, path
+		return
 
 	###
 	# Reveals current paths sibling properties
@@ -124,13 +123,14 @@ objectoPatronum = (->
 	###
 
 	siblingumRevelio: (obj, path) ->
-		path = (path.split ".").map(@fixKey) if not @isArray path
+		path = (path.split ".").map( @fixKey ) if not @isArray path
 		key = path.pop()
 
 		parent = @invito obj, path.reverse()
 
-		keyList = Object.keys( parent )
-		return keyList.splice( keyList.indexOf(key ), 1 )
+		siblings = Object.keys( parent )
+		siblings.splice( siblings.indexOf( key ), 1 )
+		siblings
 
 
 
