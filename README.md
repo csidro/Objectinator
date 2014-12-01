@@ -28,6 +28,7 @@ unobserve(object)
 - undo/redo changes given times
 - undo/redo changes until reaches given value
 - set flags and switch states between flags
+- add observable properties to object
 - **deep observe**
 
 
@@ -67,4 +68,6 @@ Processing until given property reaches the given value.
 ```
 object.undoToValue("a:1")
 ```
+
+### set flags and switch states between flags
 

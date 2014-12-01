@@ -22,5 +22,8 @@
   "bugs": {
     "url": "https://github.com/csidro/Objectinator/issues"
   },
-  "homepage": "https://github.com/csidro/Objectinator"
+  "homepage": "https://github.com/csidro/Objectinator",
+  "devDependencies": {
+    "nodeunit": "^0.9.0"
+  }
 }
