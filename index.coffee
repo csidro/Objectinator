@@ -19,10 +19,18 @@ observe = (obj) ->
 		configurable: false
 		writable: false
 		value: () ->
-			step = @__History__._backwards.pop()
-			@__History__._forwards.push key: step.key, value: @[step.key]
-			@[step.key] = step.value
-			@__History__._backwards.pop()
+			fn = () ->
+				step = @__History__._backwards.pop()
+				@__History__._forwards.push key: step.key, value: @[step.key]
+				@[step.key] = step.value
+				@__History__._backwards.pop()
+
+			if arguments[0] and typeof arguments[0] is "number"
+				i = arguments[0]
+				while i--
+					fn.call(@)
+			else
+				fn.call(@)
 			@
 
 	Object.defineProperty obj, "redo",
@@ -30,10 +38,18 @@ observe = (obj) ->
 		configurable: false
 		writable: false
 		value: () ->
-			step = @__History__._forwards.pop()
-			@__History__._backwards.push key: step.key, value: @[step.key]
-			@[step.key] = step.value
-			@__History__._backwards.pop()
+			fn = () ->
+				step = @__History__._forwards.pop()
+				@__History__._backwards.push key: step.key, value: @[step.key]
+				@[step.key] = step.value
+				@__History__._backwards.pop()
+
+			if arguments[0] and typeof arguments[0] is "number"
+				i = arguments[0]
+				while i--
+					fn.call(@)
+			else
+				fn.call(@)
 			@
 
 
@@ -45,7 +61,6 @@ observe = (obj) ->
 				get: () ->
 					prop
 				set: (newVal) ->
-					console.log arguments
 					step = 
 						key: property
 						value: prop
@@ -55,4 +70,15 @@ observe = (obj) ->
 			obj[property] = value
 
 	return
+
+
+a = foo: 50, bar: 100
+
+observe a
+
+i = 50
+while --i
+	a.foo = i
+	a.bar = i*2
+
 
