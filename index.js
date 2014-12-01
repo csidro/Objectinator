@@ -76,27 +76,30 @@ objectoPatronum = (function() {
     /*
     	 * Delete property from object
     	 * @param obj {Object}
-    	 * @param path {String}
+    	 * @param path {String|Reversed array}
      */
     evapores: function(obj, path) {
-      var siblings;
+      var key, parent;
       if (!this.isArray(path)) {
         path = (path.split(".")).map(this.fixKey);
       }
-      siblings = this.siblingumRevelio(obj, path);
-      if (siblings.length === 0) {
-        path.pop();
-        this.evapores(obj, path);
-      } else {
-        obj = this.invito(obj, path.reverse());
-        if (!this.isObject(obj)) {
-          delete obj[key];
-        }
-        if (this.isArray(obj && this.isNumeric(key))) {
-          obj.splice(key, 1);
-        }
+      key = path.pop();
+      path.reverse();
+      parent = this.invito(obj, path);
+      if (this.isObject(parent)) {
+        delete parent[key];
+      }
+      if (this.isArray(parent) && this.isNumeric(key)) {
+        return parent.splice(key, 1);
       }
     },
+
+    /*
+    	 * Delete backwards until sibling is found
+    	 * @param obj
+    	 * @param path
+     */
+    evaporesMaxima: function(obj, path) {},
 
     /*
     	 * Reduce objects not used trees
@@ -105,26 +108,11 @@ objectoPatronum = (function() {
      */
     reductoValues: [void 0, null, ""],
     reducto: function(obj, path, origin) {
-      var key, _, _fn, _i, _len, _ref;
       if ((path == null) || path === void 0) {
         path = [];
       }
       if ((origin == null) || origin === void 0) {
-        origin = obj;
-      }
-      _ = this;
-      if (this.isObject(obj) || this.isArray(obj)) {
-        _ref = Object.keys(obj);
-        _fn = function(key) {
-          path.push(key);
-          _.reducto(obj[key], path, false, origin);
-        };
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          key = _ref[_i];
-          _fn(key);
-        }
-      } else if (this.reductoValues.indexOf(obj) !== -1) {
-        this.evapores(origin, path);
+        return origin = obj;
       }
     },
 

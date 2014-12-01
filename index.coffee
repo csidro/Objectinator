@@ -72,21 +72,28 @@ objectoPatronum = (->
 	###
 	# Delete property from object
 	# @param obj {Object}
-	# @param path {String}
+	# @param path {String|Reversed array}
 	###
 
 	evapores: (obj, path) ->
-		path = (path.split ".").map(@fixKey) if not @isArray path
-		siblings = @siblingumRevelio obj, path
-		
-		if siblings.length is 0
-			path.pop()
-			@evapores obj, path
-		else
-			obj = @invito obj, path.reverse()
-			delete obj[key] if not @isObject obj
-			obj.splice( key, 1 ) if @isArray obj and @isNumeric key
-		return
+		path = (path.split ".").map( @fixKey ) if not @isArray path
+		key = path.pop()
+		path.reverse()
+
+		parent = @invito obj, path
+
+		delete parent[key] if @isObject( parent )
+		parent.splice( key, 1 ) if @isArray( parent ) and @isNumeric( key )
+
+
+	###
+	# Delete backwards until sibling is found
+	# @param obj
+	# @param path
+	###
+
+	evaporesMaxima: (obj, path) ->
+
 
 
 	###
@@ -100,21 +107,6 @@ objectoPatronum = (->
 		path = [] if not path? or path is undefined
 		origin = obj if not origin? or origin is undefined
 
-		_ = @
-		
-		# check if obj is object or array
-		if @isObject( obj ) or @isArray( obj )
-			# loop through obj keys and start the reduction process
-			for key in Object.keys obj
-				do (key) ->
-					path.push(key)
-					_.reducto obj[key], path, false, origin
-					return
-
-		# only delete path if value is in @reductoValues
-		else if @reductoValues.indexOf( obj ) isnt -1
-			@evapores origin, path
-		return
 
 	###
 	# Reveals current paths sibling properties
