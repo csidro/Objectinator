@@ -39,6 +39,7 @@ objectoPatronum = (->
 		@invito obj[key], path
 
 
+
 	###
 	# Writes value to object through path
 	# @param obj {Object}
@@ -77,15 +78,16 @@ objectoPatronum = (->
 	###
 
 	evapores: (obj, path) ->
-		console.log path
 		path = (path.split ".").map( @fixKey ) if not @isArray path
 		key = path.pop()
 		path.reverse()
 
 		parent = @invito obj, path
 
-		delete parent[key] if @isObject( parent )
-		parent.splice( key, 1 ) if @isArray( parent ) and @isNumeric( key )
+		# use delete for arrays too, to keep indexing right
+		delete parent[key]
+		# delete parent[key] if @isObject( parent )
+		# parent.splice( key, 1 ) if @isArray( parent ) and @isNumeric( key )
 
 		return
 
@@ -108,6 +110,20 @@ objectoPatronum = (->
 		return
 
 
+	###
+	# Repairs array indexing
+	# @param arr {Array}
+	###
+
+	reparo: (arr) ->
+		i = 0
+		while i < arr.length
+			if not arr[i]? or arr[i] is undefined
+				arr.splice( i, 1 )
+			else
+				i++
+		arr
+
 
 	###
 	# Reduce objects not used trees
@@ -117,7 +133,36 @@ objectoPatronum = (->
 
 	reductoValues: [undefined, null, "", [], {}]
 	reductoKeys: ["i"]
-	reducto: (obj, path, origin) ->
+	reductoMap: []
+
+	reducto: (obj) ->
+		_ = @
+		
+		# build the reductomap
+		@designo( obj )
+
+		# loop through the map and evaporesMaxima
+		@reductoMap.map (path) ->
+			_.evaporesMaxima( obj, path )
+
+		# walk through obj again and fix array indexing
+		fn = (obj) ->
+			obj = _.reparo( obj ) if _.isArray( obj )
+			if _.isObject( obj ) or _.isArray( obj )
+				keys = Object.keys( obj )
+				for key in keys
+					fn( obj[key] )
+			return
+
+		fn( obj )
+		return
+
+
+	###
+	# Builds the reductoMap
+	###
+
+	designo: (obj, path, origin) ->
 		origin = obj if not origin? or origin is undefined
 		path = [] if not path? or path is undefined
 		path = path.split( "." ) if not @isArray path
@@ -126,13 +171,15 @@ objectoPatronum = (->
 			keys = Object.keys( obj )
 			for key in keys
 				path.push( key )
-				@reducto obj[key], path.join("."), origin
+				@designo obj[key], path.join("."), origin
 				path.pop()
 
 		else
 			evaporesPath = path.join(".")
-			console.log evaporesPath
-			@evaporesMaxima( origin, evaporesPath ) if @reductoValues.indexOf( obj ) isnt -1 or @reductoKeys.indexOf( path.pop() ) isnt -1
+			
+			# dont start evapores just build a reducto map
+			# @evaporesMaxima( origin, evaporesPath ) if @reductoValues.indexOf( obj ) isnt -1 or @reductoKeys.indexOf( path.pop() ) isnt -1
+			@reductoMap.push( evaporesPath ) if @reductoValues.indexOf( obj ) isnt -1 or @reductoKeys.indexOf( path.pop() ) isnt -1
 		return
 
 
@@ -153,6 +200,7 @@ objectoPatronum = (->
 		siblings = Object.keys( parent )
 		siblings.splice( siblings.indexOf( key ), 1 )
 		siblings
+		return
 
 )()
 
@@ -171,3 +219,10 @@ a =
 					m:
 						n:
 							o: undefined
+
+after = 
+	b: 1
+	c:
+		d: [[1,2,3, {a: 1, b: 2}]]
+		f:
+			g: "asdf"

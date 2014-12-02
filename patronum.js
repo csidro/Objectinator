@@ -3,7 +3,7 @@
 /*
  * ObjectoPatronum helps in [g|s]etting values [from|to] the deep
  */
-var a, objectoPatronum;
+var a, after, objectoPatronum;
 
 objectoPatronum = (function() {
   return {
@@ -80,19 +80,13 @@ objectoPatronum = (function() {
      */
     evapores: function(obj, path) {
       var key, parent;
-      console.log(path);
       if (!this.isArray(path)) {
         path = (path.split(".")).map(this.fixKey);
       }
       key = path.pop();
       path.reverse();
       parent = this.invito(obj, path);
-      if (this.isObject(parent)) {
-        delete parent[key];
-      }
-      if (this.isArray(parent) && this.isNumeric(key)) {
-        parent.splice(key, 1);
-      }
+      delete parent[key];
     },
 
     /*
@@ -111,13 +105,57 @@ objectoPatronum = (function() {
     },
 
     /*
+    	 * Repairs array indexing
+    	 * @param arr {Array}
+     */
+    reparo: function(arr) {
+      var i;
+      i = 0;
+      while (i < arr.length) {
+        if ((arr[i] == null) || arr[i] === void 0) {
+          arr.splice(i, 1);
+        } else {
+          i++;
+        }
+      }
+      return arr;
+    },
+
+    /*
     	 * Reduce objects not used trees
     	 * First
     	 * @param obj {Object}
      */
     reductoValues: [void 0, null, "", [], {}],
     reductoKeys: ["i"],
-    reducto: function(obj, path, origin) {
+    reductoMap: [],
+    reducto: function(obj) {
+      var fn, _;
+      _ = this;
+      this.designo(obj);
+      this.reductoMap.map(function(path) {
+        return _.evaporesMaxima(obj, path);
+      });
+      fn = function(obj) {
+        var key, keys, _i, _len;
+        if (_.isArray(obj)) {
+          obj = _.reparo(obj);
+        }
+        if (_.isObject(obj) || _.isArray(obj)) {
+          keys = Object.keys(obj);
+          for (_i = 0, _len = keys.length; _i < _len; _i++) {
+            key = keys[_i];
+            fn(obj[key]);
+          }
+        }
+      };
+      fn(obj);
+    },
+
+    /*
+    	 * Builds the reductoMap
+     */
+    designo: function(obj, path, origin) {
       var evaporesPath, key, keys, _i, _len;
       if ((origin == null) || origin === void 0) {
         origin = obj;
@@ -133,14 +171,13 @@ objectoPatronum = (function() {
         for (_i = 0, _len = keys.length; _i < _len; _i++) {
           key = keys[_i];
           path.push(key);
-          this.reducto(obj[key], path.join("."), origin);
+          this.designo(obj[key], path.join("."), origin);
           path.pop();
         }
       } else {
         evaporesPath = path.join(".");
-        console.log(evaporesPath);
         if (this.reductoValues.indexOf(obj) !== -1 || this.reductoKeys.indexOf(path.pop()) !== -1) {
-          this.evaporesMaxima(origin, evaporesPath);
+          this.reductoMap.push(evaporesPath);
         }
       }
     },
@@ -159,7 +196,7 @@ objectoPatronum = (function() {
       parent = this.invito(obj, path.join("."));
       siblings = Object.keys(parent);
       siblings.splice(siblings.indexOf(key), 1);
-      return siblings;
+      siblings;
     }
   };
 })();
@@ -190,6 +227,23 @@ a = {
           }
         }
       }
+    }
+  }
+};
+
+after = {
+  b: 1,
+  c: {
+    d: [
+      [
+        1, 2, 3, {
+          a: 1,
+          b: 2
+        }
+      ]
+    ],
+    f: {
+      g: "asdf"
     }
   }
 };
