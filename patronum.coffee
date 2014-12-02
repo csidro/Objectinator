@@ -23,12 +23,11 @@ objectoPatronum = (->
 	###
 	# Reads value from object through path
 	# @param obj {Object}
-	# @param invitoPath {String} - e.g. 'a.foo.1.bar'
+	# @param path {String} - e.g. 'a.foo.1.bar'
 	###
 
-	invito: (obj, invitoPath) ->
+	invito: (obj, path) ->
 		# reversing the path to use Array::pop()
-		path = invitoPath
 		path = (path.split ".").reverse().map(@fixKey) if not @isArray path
 		key = path.pop()
 
@@ -38,20 +37,18 @@ objectoPatronum = (->
 			return obj[key]
 
 		@invito obj[key], path
-		return
 
 
 	###
 	# Writes value to object through path
 	# @param obj {Object}
-	# @param missitoPath {String} - e.g. 'a.foo.bar'
+	# @param path {String} - e.g. 'a.foo.bar'
 	# @param value {Mixed}
 	# @param create {Boolean} - whether it should build non-existent tree or not
 	###
 
-	missito: (obj, missitoPath, value, create) ->
+	missito: (obj, path, value, create) ->
 		create = true if not create? or create is undefined
-		path = missitoPath
 		# reversing the path to use Array::pop()
 		path = (path.split ".").reverse().map(@fixKey) if not @isArray path
 		key = path.pop()
@@ -76,11 +73,10 @@ objectoPatronum = (->
 	###
 	# Delete property from object
 	# @param obj {Object}
-	# @param evaporesPath {String|Reversed array}
+	# @param path {String|Reversed array}
 	###
 
-	evapores: (obj, evaporesPath) ->
-		path = evaporesPath
+	evapores: (obj, path) ->
 		path = (path.split ".").map( @fixKey ) if not @isArray path
 		key = path.pop()
 		path.reverse()
@@ -96,15 +92,14 @@ objectoPatronum = (->
 	###
 	# Delete backwards until sibling is found
 	# @param obj
-	# @param evaporesPath
+	# @param path
 	###
 
-	evaporesMaxima: (obj, evaporesPath) ->
-		path = evaporesPath
+	evaporesMaxima: (obj, path) ->
 		path = (path.split ".").map( @fixKey ) if not @isArray path
 
 		# go backwards until sibling is found
-		while @siblingumRevelio( obj, path ).length is 0
+		while @siblingumRevelio( obj, path.join(".") ).length is 0
 			path.pop()
 
 		# when sibling found, delete from current path
@@ -135,15 +130,154 @@ objectoPatronum = (->
 		path = (path.split ".").map( @fixKey ) if not @isArray path
 		key = path.pop()
 
-		parent = @invito obj, path.reverse()
+		parent = @invito obj, path.join(".")
 
 		siblings = Object.keys( parent )
 		siblings.splice( siblings.indexOf( key ), 1 )
 		siblings
 
 
+
+
+
+
+
+
+
+
+
 )()
 
+
+class History
+	constructor: (@isChild = true) ->
+		@_backwards = []
+		@_forwards = []
+
+###
+# History functions
+###
+
+
+
+
+
+undo = () ->
+	# get the next step from backwards history
+	step = @__History__._backwards.pop()
+	# save current state to forwards history
+	@__History__._forwards.push key: step.key, value: @[step.key]
+	# set current state
+	@[step.key] = step.value
+	# remove last state from backwards history, because the previous state setting created a history record
+	@__History__._backwards.pop()
+
+
+
+redo = () ->
+	# get the next step from forwards history
+	step = @__History__._forwards.pop()
+	# save current state to backwards history
+	@__History__._backwards.push key: step.key, value: @[step.key]
+	# set current state
+	@[step.key] = step.value
+	# remove last state from backwards history, because the previous state setting created a history record
+	@__History__._backwards.pop()
+
+
+
+
+
+###
+# End of history functions
+###
+
+
+
+
+observe = (obj) ->
+	# if starting to record extend the object with a non-enumerable History object,
+	# which handles the overall history,
+	# and extend whitelisted values with the capability of undoing and redoing
+
+	Object.defineProperty obj, "__History__",
+		enumerable: false
+		configurable: true
+		value: new History(false)
+
+	Object.defineProperty obj, "undo",
+		enumerable: false
+		configurable: false
+		writable: false
+		value: (n) ->
+			# if a number passed as the first argument, redo the changes n times
+			if typeof n is "number"
+				while n--
+					undo.call(@)
+			else
+				undo.call(@)
+			@
+
+	Object.defineProperty obj, "redo",
+		enumerable: false
+		configurable: false
+		writable: false
+
+		value: (n) ->
+			# if a number passed as the first argument, redo the changes n times
+			if typeof n is "number"
+				while n--
+					redo.call(@)
+			else
+				redo.call(@)
+			@
+
+
+	for prop in Object.keys(obj)
+		do (prop) ->
+			
+			value = obj[prop]
+			property = prop
+
+			Object.defineProperty obj, prop,
+				get: () ->
+					prop
+				set: (newVal) ->
+					step = key: property, value: prop
+					@__History__._backwards.push step
+					prop = newVal
+
+			obj[property] = value
+
+	return
+
+unobserve = (obj) ->
+	# empty the __History__ object
+	Object.defineProperty obj, "__History__",
+		enumerable: false
+		configurable: true
+		value: new History(false)
+
+	for prop, val of obj
+		do (prop, val) ->
+			# redefine all property with current value
+			Object.defineProperty obj, prop,
+				writable: true
+				configurable: true
+				enumerable: true
+				value: val
+
+	return
+
+
+# observe a
+
+# i = 50
+# while --i
+	# a.foo = i
+	# a.bar = i*2
+
+# unobserve a
 
 a = 
 	b: 1

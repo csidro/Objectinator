@@ -3,7 +3,7 @@
 /*
  * ObjectoPatronum helps in [g|s]etting values [from|to] the deep
  */
-var a, objectoPatronum;
+var History, a, objectoPatronum, observe, redo, undo, unobserve;
 
 objectoPatronum = (function() {
   return {
@@ -26,11 +26,10 @@ objectoPatronum = (function() {
     /*
     	 * Reads value from object through path
     	 * @param obj {Object}
-    	 * @param invitoPath {String} - e.g. 'a.foo.1.bar'
+    	 * @param path {String} - e.g. 'a.foo.1.bar'
      */
-    invito: function(obj, invitoPath) {
-      var key, path;
-      path = invitoPath;
+    invito: function(obj, path) {
+      var key;
       if (!this.isArray(path)) {
         path = (path.split(".")).reverse().map(this.fixKey);
       }
@@ -38,22 +37,21 @@ objectoPatronum = (function() {
       if (path.length === 0 || !Object.prototype.hasOwnProperty.call(obj, key)) {
         return obj[key];
       }
-      this.invito(obj[key], path);
+      return this.invito(obj[key], path);
     },
 
     /*
     	 * Writes value to object through path
     	 * @param obj {Object}
-    	 * @param missitoPath {String} - e.g. 'a.foo.bar'
+    	 * @param path {String} - e.g. 'a.foo.bar'
     	 * @param value {Mixed}
     	 * @param create {Boolean} - whether it should build non-existent tree or not
      */
-    missito: function(obj, missitoPath, value, create) {
-      var key, path;
+    missito: function(obj, path, value, create) {
+      var key;
       if ((create == null) || create === void 0) {
         create = true;
       }
-      path = missitoPath;
       if (!this.isArray(path)) {
         path = (path.split(".")).reverse().map(this.fixKey);
       }
@@ -78,11 +76,10 @@ objectoPatronum = (function() {
     /*
     	 * Delete property from object
     	 * @param obj {Object}
-    	 * @param evaporesPath {String|Reversed array}
+    	 * @param path {String|Reversed array}
      */
-    evapores: function(obj, evaporesPath) {
-      var key, parent, path;
-      path = evaporesPath;
+    evapores: function(obj, path) {
+      var key, parent;
       if (!this.isArray(path)) {
         path = (path.split(".")).map(this.fixKey);
       }
@@ -100,15 +97,13 @@ objectoPatronum = (function() {
     /*
     	 * Delete backwards until sibling is found
     	 * @param obj
-    	 * @param evaporesPath
+    	 * @param path
      */
-    evaporesMaxima: function(obj, evaporesPath) {
-      var path;
-      path = evaporesPath;
+    evaporesMaxima: function(obj, path) {
       if (!this.isArray(path)) {
         path = (path.split(".")).map(this.fixKey);
       }
-      while (this.siblingumRevelio(obj, path).length === 0) {
+      while (this.siblingumRevelio(obj, path.join(".")).length === 0) {
         path.pop();
       }
       this.evapores(obj, path);
@@ -140,13 +135,141 @@ objectoPatronum = (function() {
         path = (path.split(".")).map(this.fixKey);
       }
       key = path.pop();
-      parent = this.invito(obj, path.reverse());
+      parent = this.invito(obj, path.join("."));
       siblings = Object.keys(parent);
       siblings.splice(siblings.indexOf(key), 1);
       return siblings;
     }
   };
 })();
+
+History = (function() {
+  function History(isChild) {
+    this.isChild = isChild != null ? isChild : true;
+    this._backwards = [];
+    this._forwards = [];
+  }
+
+  return History;
+
+})();
+
+
+/*
+ * History functions
+ */
+
+undo = function() {
+  var step;
+  step = this.__History__._backwards.pop();
+  this.__History__._forwards.push({
+    key: step.key,
+    value: this[step.key]
+  });
+  this[step.key] = step.value;
+  return this.__History__._backwards.pop();
+};
+
+redo = function() {
+  var step;
+  step = this.__History__._forwards.pop();
+  this.__History__._backwards.push({
+    key: step.key,
+    value: this[step.key]
+  });
+  this[step.key] = step.value;
+  return this.__History__._backwards.pop();
+};
+
+
+/*
+ * End of history functions
+ */
+
+observe = function(obj) {
+  var prop, _fn, _i, _len, _ref;
+  Object.defineProperty(obj, "__History__", {
+    enumerable: false,
+    configurable: true,
+    value: new History(false)
+  });
+  Object.defineProperty(obj, "undo", {
+    enumerable: false,
+    configurable: false,
+    writable: false,
+    value: function(n) {
+      if (typeof n === "number") {
+        while (n--) {
+          undo.call(this);
+        }
+      } else {
+        undo.call(this);
+      }
+      return this;
+    }
+  });
+  Object.defineProperty(obj, "redo", {
+    enumerable: false,
+    configurable: false,
+    writable: false,
+    value: function(n) {
+      if (typeof n === "number") {
+        while (n--) {
+          redo.call(this);
+        }
+      } else {
+        redo.call(this);
+      }
+      return this;
+    }
+  });
+  _ref = Object.keys(obj);
+  _fn = function(prop) {
+    var property, value;
+    value = obj[prop];
+    property = prop;
+    Object.defineProperty(obj, prop, {
+      get: function() {
+        return prop;
+      },
+      set: function(newVal) {
+        var step;
+        step = {
+          key: property,
+          value: prop
+        };
+        this.__History__._backwards.push(step);
+        return prop = newVal;
+      }
+    });
+    return obj[property] = value;
+  };
+  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+    prop = _ref[_i];
+    _fn(prop);
+  }
+};
+
+unobserve = function(obj) {
+  var prop, val, _fn;
+  Object.defineProperty(obj, "__History__", {
+    enumerable: false,
+    configurable: true,
+    value: new History(false)
+  });
+  _fn = function(prop, val) {
+    return Object.defineProperty(obj, prop, {
+      writable: true,
+      configurable: true,
+      enumerable: true,
+      value: val
+    });
+  };
+  for (prop in obj) {
+    val = obj[prop];
+    _fn(prop, val);
+  }
+};
 
 a = {
   b: 1,
