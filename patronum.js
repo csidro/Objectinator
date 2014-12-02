@@ -3,7 +3,7 @@
 /*
  * ObjectoPatronum helps in [g|s]etting values [from|to] the deep
  */
-var History, a, objectoPatronum, observe, redo, undo, unobserve;
+var a, objectoPatronum;
 
 objectoPatronum = (function() {
   return {
@@ -80,6 +80,7 @@ objectoPatronum = (function() {
      */
     evapores: function(obj, path) {
       var key, parent;
+      console.log(path);
       if (!this.isArray(path)) {
         path = (path.split(".")).map(this.fixKey);
       }
@@ -115,12 +116,32 @@ objectoPatronum = (function() {
     	 * @param obj {Object}
      */
     reductoValues: [void 0, null, "", [], {}],
+    reductoKeys: ["i"],
     reducto: function(obj, path, origin) {
+      var evaporesPath, key, keys, _i, _len;
+      if ((origin == null) || origin === void 0) {
+        origin = obj;
+      }
       if ((path == null) || path === void 0) {
         path = [];
       }
-      if ((origin == null) || origin === void 0) {
-        return origin = obj;
+      if (!this.isArray(path)) {
+        path = path.split(".");
+      }
+      if (this.isObject(obj) || this.isArray(obj)) {
+        keys = Object.keys(obj);
+        for (_i = 0, _len = keys.length; _i < _len; _i++) {
+          key = keys[_i];
+          path.push(key);
+          this.reducto(obj[key], path.join("."), origin);
+          path.pop();
+        }
+      } else {
+        evaporesPath = path.join(".");
+        console.log(evaporesPath);
+        if (this.reductoValues.indexOf(obj) !== -1 || this.reductoKeys.indexOf(path.pop()) !== -1) {
+          this.evaporesMaxima(origin, evaporesPath);
+        }
       }
     },
 
@@ -142,134 +163,6 @@ objectoPatronum = (function() {
     }
   };
 })();
-
-History = (function() {
-  function History(isChild) {
-    this.isChild = isChild != null ? isChild : true;
-    this._backwards = [];
-    this._forwards = [];
-  }
-
-  return History;
-
-})();
-
-
-/*
- * History functions
- */
-
-undo = function() {
-  var step;
-  step = this.__History__._backwards.pop();
-  this.__History__._forwards.push({
-    key: step.key,
-    value: this[step.key]
-  });
-  this[step.key] = step.value;
-  return this.__History__._backwards.pop();
-};
-
-redo = function() {
-  var step;
-  step = this.__History__._forwards.pop();
-  this.__History__._backwards.push({
-    key: step.key,
-    value: this[step.key]
-  });
-  this[step.key] = step.value;
-  return this.__History__._backwards.pop();
-};
-
-
-/*
- * End of history functions
- */
-
-observe = function(obj) {
-  var prop, _fn, _i, _len, _ref;
-  Object.defineProperty(obj, "__History__", {
-    enumerable: false,
-    configurable: true,
-    value: new History(false)
-  });
-  Object.defineProperty(obj, "undo", {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: function(n) {
-      if (typeof n === "number") {
-        while (n--) {
-          undo.call(this);
-        }
-      } else {
-        undo.call(this);
-      }
-      return this;
-    }
-  });
-  Object.defineProperty(obj, "redo", {
-    enumerable: false,
-    configurable: false,
-    writable: false,
-    value: function(n) {
-      if (typeof n === "number") {
-        while (n--) {
-          redo.call(this);
-        }
-      } else {
-        redo.call(this);
-      }
-      return this;
-    }
-  });
-  _ref = Object.keys(obj);
-  _fn = function(prop) {
-    var property, value;
-    value = obj[prop];
-    property = prop;
-    Object.defineProperty(obj, prop, {
-      get: function() {
-        return prop;
-      },
-      set: function(newVal) {
-        var step;
-        step = {
-          key: property,
-          value: prop
-        };
-        this.__History__._backwards.push(step);
-        return prop = newVal;
-      }
-    });
-    return obj[property] = value;
-  };
-  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-    prop = _ref[_i];
-    _fn(prop);
-  }
-};
-
-unobserve = function(obj) {
-  var prop, val, _fn;
-  Object.defineProperty(obj, "__History__", {
-    enumerable: false,
-    configurable: true,
-    value: new History(false)
-  });
-  _fn = function(prop, val) {
-    return Object.defineProperty(obj, prop, {
-      writable: true,
-      configurable: true,
-      enumerable: true,
-      value: val
-    });
-  };
-  for (prop in obj) {
-    val = obj[prop];
-    _fn(prop, val);
-  }
-};
 
 a = {
   b: 1,
