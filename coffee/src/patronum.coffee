@@ -8,6 +8,7 @@
 	else
 		context["objectoPatronum"] = factory()
 
+	return
 )(@, () ->
 
 	###

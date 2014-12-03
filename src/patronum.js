@@ -1,10 +1,10 @@
 (function(context, factory) {
   if (typeof define === 'function' && define.amd) {
-    return define([], factory);
+    define([], factory);
   } else if (typeof module !== 'undefined' && module.exports) {
-    return module.exports = factory();
+    module.exports = factory();
   } else {
-    return context["objectoPatronum"] = factory();
+    context["objectoPatronum"] = factory();
   }
 })(this, function() {
   return {

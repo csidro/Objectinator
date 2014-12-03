@@ -8,6 +8,7 @@
 	else
 		context["ObjectHistory"] = factory()
 
+	return
 )(@, () ->
 
 	class History
