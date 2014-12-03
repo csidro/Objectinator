@@ -54,7 +54,8 @@
 
 
 
-	observe = (obj) ->
+	observe = (obj, whitelist, extension = false) ->
+
 		# if starting to record extend the object with a non-enumerable History object,
 		# which handles the overall history,
 		# and extend whitelisted values with the capability of undoing and redoing
@@ -65,8 +66,8 @@
 			value: new History(false)
 
 		Object.defineProperty obj, "undo",
+			configurable: true # set to true, than it can be removed later
 			enumerable: false
-			configurable: false
 			writable: false
 			value: (n) ->
 				# if a number passed as the first argument, redo the changes n times
@@ -78,8 +79,8 @@
 				@
 
 		Object.defineProperty obj, "redo",
+			configurable: true # set to true, than it can be removed later
 			enumerable: false
-			configurable: false
 			writable: false
 
 			value: (n) ->
@@ -91,14 +92,21 @@
 					redo.call(@)
 				@
 
+		keys = Object.keys( obj )
+		if whitelist?
+			keys = whitelist
+			keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
 
-		for prop in Object.keys(obj)
+		for prop in keys
 			do (prop) ->
 				
 				value = obj[prop]
 				property = prop
 
 				Object.defineProperty obj, prop,
+					enumerable: true
+					configurable: true
+
 					get: () ->
 						prop
 					set: (newVal) ->
@@ -113,6 +121,8 @@
 	unobserve = (obj) ->
 		# remove the __History__ object
 		delete obj.__History__
+		delete obj.undo
+		delete obj.redo
 
 		for prop, val of obj
 			do (prop, val) ->

@@ -1,10 +1,10 @@
 module.exports = 
 	options: 
-		globals: ['should', 'chai', 'sinon']
+		globals: ['chai']
 		timeout: 3000
 		ignoreLeaks: false
-		ui: 'tdd'
-		reporter: 'nyan'
+		ui: 'bdd'
+		reporter: 'spec'
 
 	all:
 		src: ['test/**/*.js']
