@@ -1,3 +1,2 @@
 node_modules/
-*.sublime-project
-/Objectinator.sublime-workspace
+*.sublime-*

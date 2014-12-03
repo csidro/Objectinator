@@ -3,7 +3,7 @@
 		define([], factory);
 
 	else if typeof module isnt 'undefined' and module.exports
-		module.exports = factory
+		module.exports = factory()
 
 	else
 		context["ObjectHistory"] = factory()
@@ -110,11 +110,8 @@
 		return
 
 	unobserve = (obj) ->
-		# empty the __History__ object
-		Object.defineProperty obj, "__History__",
-			enumerable: false
-			configurable: true
-			value: new History(false)
+		# remove the __History__ object
+		delete obj.__History__
 
 		for prop, val of obj
 			do (prop, val) ->

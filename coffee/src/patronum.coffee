@@ -1,9 +1,18 @@
+((context, factory)->
+	if typeof define is 'function' and define.amd
+		define([], factory);
 
-###
-# ObjectoPatronum helps in [g|s]etting values [from|to] the deep
-###
+	else if typeof module isnt 'undefined' and module.exports
+		module.exports = factory()
 
-objectoPatronum = (->
+	else
+		context["objectoPatronum"] = factory()
+
+)(@, () ->
+
+	###
+	# ObjectoPatronum is a tree helper
+	###
 
 
 	isArray: (val) ->
@@ -203,26 +212,3 @@ objectoPatronum = (->
 		return
 
 )()
-
-a = 
-	b: 1
-	c: 
-		e: undefined
-		d: [null, undefined, "", [1,2,3, {a: 1, b:2}]]
-		f: 
-			g: "asdf"
-			h:
-				i: 1
-				j: undefined
-				k: undefined
-				l:
-					m:
-						n:
-							o: undefined
-
-after = 
-	b: 1
-	c:
-		d: [[1,2,3, {a: 1, b: 2}]]
-		f:
-			g: "asdf"
