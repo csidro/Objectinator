@@ -64,7 +64,7 @@ object.undo().undo().undo().undo() === object.undo(4)
 
 Objecto Patronum is a **magical way** to get data from a tree through an object path. Although it uses mostly incantations from Harry Potter - or something like that -, it can be used the similar way, like get and set.
 
-** In all example we have the following object **
+**In all example we have the following object**
 ```
 obj = {
 	a: 1,
