@@ -223,4 +223,7 @@ describe("ObjectHistory", function() {
   describe("#deepObserve()", function() {
     it("should observe object tree");
   });
+  describe("#multiObserve()", function() {
+    it("should observe multiple objects");
+  });
 });

@@ -1,4 +1,3 @@
-
 chai = require 'chai'
 
 o = require '../src/history'
@@ -261,6 +260,12 @@ describe "ObjectHistory", () ->
 	describe "#deepObserve()", () ->
 
 		it "should observe object tree"
+
+		return
+
+	describe "#multiObserve()", () ->
+
+		it "should observe multiple objects"
 
 		return
 	return

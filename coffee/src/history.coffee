@@ -11,8 +11,24 @@
 	return
 )(@, () ->
 
+	###
+	Basic helper functions
+	###
+
+
+	isType: ( val, type ) ->
+
+
+
+	###
+	End of helper functions
+	###
+
+
+	# History prototype
+
 	class History
-		constructor: (@isChild = true) ->
+		constructor: () ->
 			@_backwards = []
 			@_forwards = []
 
@@ -54,8 +70,10 @@
 
 
 
-	observe = (obj, whitelist, extension = false) ->
-
+	observe = (obj, whitelist, deep = true, extension = false, origin, path) ->
+		origin = obj if not origin? or origin is undefined
+		path = [] if not path? or path is undefined
+		path = path.split( "." ) if not ( Object::toString.call( val ) is "[object Array]" )
 		# if starting to record extend the object with a non-enumerable History object,
 		# which handles the overall history,
 		# and extend whitelisted values with the capability of undoing and redoing
@@ -65,6 +83,7 @@
 			configurable: true
 			value: new History(false)
 
+		# register undo property
 		Object.defineProperty obj, "undo",
 			configurable: true # set to true, than it can be removed later
 			enumerable: false
@@ -73,27 +92,27 @@
 				# if a number passed as the first argument, redo the changes n times
 				if typeof n is "number"
 					while n--
-						undo.call(@)
+						undo.call( obj )
 				else
-					undo.call(@)
+					undo.call( obj )
 				@
 
+		# register redo property
 		Object.defineProperty obj, "redo",
 			configurable: true # set to true, than it can be removed later
 			enumerable: false
 			writable: false
-
 			value: (n) ->
 				# if a number passed as the first argument, redo the changes n times
 				if typeof n is "number"
 					while n--
-						redo.call(@)
+						redo.call( obj )
 				else
-					redo.call(@)
+					redo.call( obj )
 				@
 
 		keys = Object.keys( obj )
-		if whitelist?
+		if whitelist? and deep is off
 			keys = whitelist
 			keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
 
@@ -102,6 +121,12 @@
 				
 				value = obj[prop]
 				property = prop
+
+				if isType( value, 'object') or isType( value, 'array') and deep is on
+					path.push( prop )
+					observe( value, whitelist, deep, extension, origin, path.join(".") )
+				else if isType( value, 'object') or isType( value, 'array') and deep is off
+					return
 
 				Object.defineProperty obj, prop,
 					enumerable: true
@@ -115,6 +140,7 @@
 						prop = newVal
 
 				obj[property] = value
+				return
 
 		return
 

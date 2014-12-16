@@ -8,9 +8,19 @@
   }
 })(this, function() {
   var History, observe, redo, undo, unobserve;
+  ({
+
+    /*
+    	Basic helper functions
+     */
+    isType: function(val, type) {}
+  });
+
+  /*
+  	End of helper functions
+   */
   History = (function() {
-    function History(isChild) {
-      this.isChild = isChild != null ? isChild : true;
+    function History() {
       this._backwards = [];
       this._forwards = [];
     }
@@ -46,10 +56,22 @@
   /*
   	 * End of history functions
    */
-  observe = function(obj, whitelist, extension) {
+  observe = function(obj, whitelist, deep, extension, origin, path) {
     var key, keys, prop, _fn, _i, _len;
+    if (deep == null) {
+      deep = true;
+    }
     if (extension == null) {
       extension = false;
+    }
+    if ((origin == null) || origin === void 0) {
+      origin = obj;
+    }
+    if ((path == null) || path === void 0) {
+      path = [];
+    }
+    if (!(Object.prototype.toString.call(val) === "[object Array]")) {
+      path = path.split(".");
     }
     Object.defineProperty(obj, "__History__", {
       enumerable: false,
@@ -63,10 +85,10 @@
       value: function(n) {
         if (typeof n === "number") {
           while (n--) {
-            undo.call(this);
+            undo.call(obj);
           }
         } else {
-          undo.call(this);
+          undo.call(obj);
         }
         return this;
       }
@@ -78,16 +100,16 @@
       value: function(n) {
         if (typeof n === "number") {
           while (n--) {
-            redo.call(this);
+            redo.call(obj);
           }
         } else {
-          redo.call(this);
+          redo.call(obj);
         }
         return this;
       }
     });
     keys = Object.keys(obj);
-    if (whitelist != null) {
+    if ((whitelist != null) && deep === false) {
       keys = whitelist;
       if (extension === false) {
         keys = (function() {
@@ -108,6 +130,12 @@
       var property, value;
       value = obj[prop];
       property = prop;
+      if (isType(value, 'object') || isType(value, 'array') && deep === true) {
+        path.push(prop);
+        observe(value, whitelist, deep, extension, origin, path.join("."));
+      } else if (isType(value, 'object') || isType(value, 'array') && deep === false) {
+        return;
+      }
       Object.defineProperty(obj, prop, {
         enumerable: true,
         configurable: true,
@@ -124,7 +152,7 @@
           return prop = newVal;
         }
       });
-      return obj[property] = value;
+      obj[property] = value;
     };
     for (_i = 0, _len = keys.length; _i < _len; _i++) {
       prop = keys[_i];
