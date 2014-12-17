@@ -130,7 +130,7 @@
   	 * End of history functions
    */
   observe = function(obj, whitelist, extension, deep, origin, path) {
-    var keys, prop, _fn, _i, _len;
+    var key, keys, prop, _fn, _fn1, _i, _j, _len, _len1;
     if (extension == null) {
       extension = false;
     }
@@ -146,6 +146,18 @@
     if (!isType(path, "array")) {
       path = path.split(".");
     }
+    if (extension === true && isType(whitelist, array)) {
+      _fn = function(path) {
+        if (deepGet(obj, path) === void 0) {
+          deepSet(obj, path, null, true);
+        }
+      };
+      for (_i = 0, _len = whitelist.length; _i < _len; _i++) {
+        path = whitelist[_i];
+        _fn(path);
+      }
+    }
+    extension = false;
     if (!origin.hasOwnProperty("__History__")) {
       Object.defineProperty(origin, "__History__", {
         enumerable: false,
@@ -186,7 +198,24 @@
       });
     }
     keys = Object.keys(obj);
-    _fn = function(prop) {
+    if ((whitelist != null) && deep === false) {
+      keys = whitelist;
+      if (extension === false) {
+        keys = (function() {
+          var _j, _len1, _ref, _results;
+          _ref = Object.keys(obj);
+          _results = [];
+          for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+            key = _ref[_j];
+            if (whitelist.indexOf(key) !== -1) {
+              _results.push(key);
+            }
+          }
+          return _results;
+        })();
+      }
+    }
+    _fn1 = function(prop) {
       var property, savePath, value;
       value = obj[prop];
       property = prop;
@@ -216,9 +245,9 @@
       }
       path.pop();
     };
-    for (_i = 0, _len = keys.length; _i < _len; _i++) {
-      prop = keys[_i];
-      _fn(prop);
+    for (_j = 0, _len1 = keys.length; _j < _len1; _j++) {
+      prop = keys[_j];
+      _fn1(prop);
     }
   };
   unobserve = function(obj) {

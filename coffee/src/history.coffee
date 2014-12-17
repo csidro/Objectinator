@@ -142,8 +142,14 @@
 		path = [] if not path? or path is undefined
 		path = path.split( "." ) if not isType( path, "array" )
 
-		# extend with whitelist here if extension and deep is on
-
+		# extend the object with whitelist values here if extension is on
+		if extension is on and isType( whitelist, array )
+			for path in whitelist
+				do ( path ) ->
+					if deepGet( obj, path ) is undefined
+						deepSet( obj, path, null, true )
+					return
+		extension = off
 		# end of extension
 
 		# if starting to record extend the object with a non-enumerable History object,
@@ -180,10 +186,9 @@
 					@
 
 		keys = Object.keys( obj )
-		# turn off whitelisting for now, only works in simple observe
-		# if whitelist? and deep is off
-		# 	keys = whitelist
-		# 	keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
+		if whitelist? and deep is off
+			keys = whitelist
+			keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
 
 		for prop in keys
 			do (prop) ->
