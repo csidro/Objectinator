@@ -15,7 +15,7 @@
   /*
   	 * Checks if given value is type of something
    */
-  var History, deepGet, deepSet, fixNumber, isType, observe, redo, undo, unobserve;
+  var History, deepGet, deepSet, fixNumber, isInWhitelisted, isType, observe, redo, undo, unobserve;
   isType = function(val, type) {
     var classToType;
     classToType = {
@@ -90,6 +90,25 @@
   };
 
   /*
+  	 * Checks if path is in a whitelisted place
+   */
+  isInWhitelisted = function(path, whitelist) {
+    var item, matches, _i, _len;
+    if ((whitelist == null) || whitelist === void 0 || (whitelist.length && whitelist.length === 0)) {
+      return true;
+    }
+    matches = 0;
+    for (_i = 0, _len = whitelist.length; _i < _len; _i++) {
+      item = whitelist[_i];
+      if (path.indexOf(item) !== -1 || item.indexOf(path) !== -1) {
+        matches++;
+      }
+    }
+    console.log(matches, path);
+    return matches > 0;
+  };
+
+  /*
   	End of helper functions
    */
   History = (function() {
@@ -130,7 +149,7 @@
   	 * End of history functions
    */
   observe = function(obj, whitelist, extension, deep, origin, path) {
-    var key, keys, prop, _fn, _fn1, _i, _j, _len, _len1;
+    var keys, prop, _fn, _fn1, _i, _j, _len, _len1;
     if (extension == null) {
       extension = false;
     }
@@ -198,50 +217,35 @@
       });
     }
     keys = Object.keys(obj);
-    if ((whitelist != null) && deep === false) {
-      keys = whitelist;
-      if (extension === false) {
-        keys = (function() {
-          var _j, _len1, _ref, _results;
-          _ref = Object.keys(obj);
-          _results = [];
-          for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
-            key = _ref[_j];
-            if (whitelist.indexOf(key) !== -1) {
-              _results.push(key);
-            }
-          }
-          return _results;
-        })();
-      }
-    }
     _fn1 = function(prop) {
       var property, savePath, value;
       value = obj[prop];
       property = prop;
       path.push(property);
       savePath = path.join(".");
-      if ((value != null) && (isType(value, 'object') || isType(value, 'array')) && deep === true) {
-        observe(value, whitelist, extension, deep, origin, savePath);
-      } else {
-        Object.defineProperty(obj, prop, {
-          enumerable: true,
-          configurable: true,
-          get: function() {
-            return prop;
-          },
-          set: function(newVal) {
-            var step;
-            step = {
-              path: savePath,
-              value: prop
-            };
-            origin.__History__._backwards.push(step);
-            return prop = newVal;
-          }
-        });
-        obj[property] = value;
-        origin.__History__._backwards.pop();
+      if (isInWhitelisted(savePath, whitelist)) {
+        if ((value != null) && (isType(value, 'object') || isType(value, 'array')) && deep === true) {
+          observe(value, whitelist, extension, deep, origin, savePath);
+        } else {
+          Object.defineProperty(obj, prop, {
+            enumerable: true,
+            configurable: true,
+            get: function() {
+              return prop;
+            },
+            set: function(newVal) {
+              var step;
+              step = {
+                path: savePath,
+                value: prop
+              };
+              origin.__History__._backwards.push(step);
+              return prop = newVal;
+            }
+          });
+          obj[property] = value;
+          origin.__History__._backwards.pop();
+        }
       }
       path.pop();
     };

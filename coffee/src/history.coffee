@@ -88,6 +88,21 @@
 
 
 	###
+	# Checks if path is in a whitelisted place
+	###
+
+	isInWhitelisted = (path, whitelist) ->
+		# if whitelist is empty or not defined, instantly whitelist path
+		return true if not whitelist? or whitelist is undefined or (whitelist.length and whitelist.length is 0)
+
+		matches = 0
+		for item in whitelist
+			# increment matches if path starts with whitelist item or vica versa
+			matches++ if path.indexOf( item ) isnt -1 or item.indexOf( path ) isnt -1
+		console.log matches, path
+		matches > 0
+
+	###
 	End of helper functions
 	###
 
@@ -143,12 +158,16 @@
 		path = path.split( "." ) if not isType( path, "array" )
 
 		# extend the object with whitelist values here if extension is on
+		# extend only if whitelist is an array
 		if extension is on and isType( whitelist, array )
+			# handle every item in whitelist as paths, so we can define them with deepSet() easily
 			for path in whitelist
 				do ( path ) ->
+					# if path is undefined in the object define it with null value
 					if deepGet( obj, path ) is undefined
 						deepSet( obj, path, null, true )
 					return
+		# turn extension off, to be sure we only try to extend once
 		extension = off
 		# end of extension
 
@@ -157,6 +176,9 @@
 		# and extend whitelisted values with the capability of undoing and redoing
 
 		# only register __History__, redo and undo, if they're not present
+		# using option enumerable: false is for preventing the History related properties to show in Object.keys()
+		# configurable set to true to keep the possibility of property deletion
+		# writable is set to false because we dont want users to mess with it!
 		if not origin.hasOwnProperty( "__History__" )
 			Object.defineProperty origin, "__History__",
 				enumerable: false
@@ -165,7 +187,7 @@
 
 		if not origin.hasOwnProperty( "undo" )
 			Object.defineProperty origin, "undo",
-				configurable: true # set to true, than it can be removed later
+				configurable: true
 				enumerable: false
 				writable: false
 				value: (n) ->
@@ -176,7 +198,7 @@
 
 		if not origin.hasOwnProperty( "redo" )
 			Object.defineProperty origin, "redo",
-				configurable: true # set to true, than it can be removed later
+				configurable: true
 				enumerable: false
 				writable: false
 				value: (n) ->
@@ -185,10 +207,8 @@
 						redo.call( origin )
 					@
 
+		# default to observe everything in object
 		keys = Object.keys( obj )
-		if whitelist? and deep is off
-			keys = whitelist
-			keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
 
 		for prop in keys
 			do (prop) ->
@@ -197,32 +217,35 @@
 
 				# build up path object
 				path.push( property )
+				# define path as String not to pass by reference
 				savePath = path.join(".")
 
-				# observe recursively if deep observe is turned on
-				if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
-					observe( value, whitelist, extension, deep, origin, savePath )
-				
-				# otherwise observe object property
-				# if deep observe is turned off, we cant observe objects and arrays
-				else
-					Object.defineProperty obj, prop,
-						enumerable: true
-						configurable: true
-						# getter remains the same
-						get: () ->
-							prop
-						# setter modified to save old values to __History__ before
-						set: (newVal) ->
-							step = path: savePath, value: prop
-							origin.__History__._backwards.push step
-							prop = newVal
+				# only go forward if path is in whitelisted area
+				if isInWhitelisted( savePath, whitelist )
+					# observe recursively if deep observe is turned on 
+					if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
+						observe( value, whitelist, extension, deep, origin, savePath )
+					
+					# otherwise observe object property
+					# if deep observe is turned off, we cant observe objects and arrays
+					else
+						Object.defineProperty obj, prop,
+							enumerable: true
+							configurable: true
+							# getter remains the same
+							get: () ->
+								prop
+							# setter modified to save old values to __History__ before
+							set: (newVal) ->
+								step = path: savePath, value: prop
+								origin.__History__._backwards.push step
+								prop = newVal
 
-					# set initial value
-					obj[property] = value
+						# set initial value
+						obj[property] = value
 
-					# remove initial value set from history
-					origin.__History__._backwards.pop()
+						# remove initial value set from history
+						origin.__History__._backwards.pop()
 
 				# remove last item from path to correct for next item
 				path.pop()
