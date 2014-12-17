@@ -192,12 +192,13 @@
     }
     keys = Object.keys(obj);
     _fn = function(prop) {
-      var property, value;
+      var property, savePath, value;
       value = obj[prop];
       property = prop;
       path.push(property);
+      savePath = path.join(".");
       if ((value != null) && (isType(value, 'object') || isType(value, 'array')) && deep === true) {
-        observe(value, whitelist, extension, deep, origin, path.join("."));
+        observe(value, whitelist, extension, deep, origin, savePath);
       } else {
         Object.defineProperty(obj, prop, {
           enumerable: true,
@@ -207,9 +208,8 @@
           },
           set: function(newVal) {
             var step;
-            console.log(origin);
             step = {
-              path: path.join("."),
+              path: savePath,
               value: prop
             };
             origin.__History__._backwards.push(step);

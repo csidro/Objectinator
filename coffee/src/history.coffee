@@ -194,14 +194,15 @@
 
 				# build up path object
 				path.push( property )
-
+				savePath = path.join(".")
+				
 				# observe recursively if deep observe is turned on
 				if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
-					observe( value, whitelist, extension, deep, origin, path.join(".") )
+					observe( value, whitelist, extension, deep, origin, savePath )
 				
 				# otherwise observe object property
 				# if deep observe is turned off, we cant observe objects and arrays
-				else 
+				else
 					Object.defineProperty obj, prop,
 						enumerable: true
 						configurable: true
@@ -210,8 +211,7 @@
 							prop
 						# setter modified to save old values to __History__ before
 						set: (newVal) ->
-							console.log origin
-							step = path: path.join("."), value: prop
+							step = path: savePath, value: prop
 							origin.__History__._backwards.push step
 							prop = newVal
 
