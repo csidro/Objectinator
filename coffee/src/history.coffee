@@ -20,8 +20,6 @@
 	###
 
 	isType = ( val, type ) ->
-		if val == undefined or val == null
-			return String val
 		classToType =
 			'[object Boolean]': 'boolean'
 			'[object Number]': 'number'
@@ -46,7 +44,7 @@
 	# @param path {String} - e.g. 'a.foo.1.bar'
 	###
 
-	deepGet= (obj, path) ->
+	deepGet = (obj, path) ->
 		# reversing the path to use Array::pop()
 		path = (path.split ".").reverse().map( fixNumber ) if not isType( path, "array" )
 		key = path.pop()
@@ -66,7 +64,7 @@
 	# @param create {Boolean} - whether it should build non-existent tree or not
 	###
 
-	deepSet: (obj, path, value, create) ->
+	deepSet = (obj, path, value, create) ->
 		create = true if not create? or create is undefined
 		# reversing the path to use Array::pop()
 		path = (path.split ".").reverse().map( fixNumber ) if not isType( path, "array" )
@@ -157,7 +155,7 @@
 			Object.defineProperty origin, "__History__",
 				enumerable: false
 				configurable: true
-				value: new History(false)
+				value: new History()
 
 		if not origin.hasOwnProperty( "undo" )
 			Object.defineProperty origin, "undo",
@@ -195,7 +193,7 @@
 				# build up path object
 				path.push( property )
 				savePath = path.join(".")
-				
+
 				# observe recursively if deep observe is turned on
 				if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
 					observe( value, whitelist, extension, deep, origin, savePath )

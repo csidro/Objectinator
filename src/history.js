@@ -15,12 +15,9 @@
   /*
   	 * Checks if given value is type of something
    */
-  var History, deepGet, fixNumber, isType, observe, redo, undo, unobserve;
+  var History, deepGet, deepSet, fixNumber, isType, observe, redo, undo, unobserve;
   isType = function(val, type) {
     var classToType;
-    if (val === void 0 || val === null) {
-      return String(val);
-    }
     classToType = {
       '[object Boolean]': 'boolean',
       '[object Number]': 'number',
@@ -58,41 +55,39 @@
     }
     return deepGet(obj[key], path);
   };
-  ({
 
-    /*
-    	 * Writes value to object through path
-    	 * @param obj {Object}
-    	 * @param path {String} - e.g. 'a.foo.bar'
-    	 * @param value {Mixed}
-    	 * @param create {Boolean} - whether it should build non-existent tree or not
-     */
-    deepSet: function(obj, path, value, create) {
-      var key;
-      if ((create == null) || create === void 0) {
-        create = true;
-      }
-      if (!isType(path, "array")) {
-        path = (path.split(".")).reverse().map(fixNumber);
-      }
-      key = path.pop();
-      if (path.length === 0) {
-        return obj[key] = value;
-      }
-      if (!Object.prototype.hasOwnProperty.call(obj, key) || obj[key] === void 0) {
-        if (create === true) {
-          if (isType(path[path.length - 1], "number")) {
-            obj[key] = [];
-          } else {
-            obj[key] = {};
-          }
-        } else {
-          throw new Error("Value not set, because creation is set to false!");
-        }
-      }
-      deepSet(obj[key], path, value, create);
+  /*
+  	 * Writes value to object through path
+  	 * @param obj {Object}
+  	 * @param path {String} - e.g. 'a.foo.bar'
+  	 * @param value {Mixed}
+  	 * @param create {Boolean} - whether it should build non-existent tree or not
+   */
+  deepSet = function(obj, path, value, create) {
+    var key;
+    if ((create == null) || create === void 0) {
+      create = true;
     }
-  });
+    if (!isType(path, "array")) {
+      path = (path.split(".")).reverse().map(fixNumber);
+    }
+    key = path.pop();
+    if (path.length === 0) {
+      return obj[key] = value;
+    }
+    if (!Object.prototype.hasOwnProperty.call(obj, key) || obj[key] === void 0) {
+      if (create === true) {
+        if (isType(path[path.length - 1], "number")) {
+          obj[key] = [];
+        } else {
+          obj[key] = {};
+        }
+      } else {
+        throw new Error("Value not set, because creation is set to false!");
+      }
+    }
+    deepSet(obj[key], path, value, create);
+  };
 
   /*
   	End of helper functions
@@ -155,7 +150,7 @@
       Object.defineProperty(origin, "__History__", {
         enumerable: false,
         configurable: true,
-        value: new History(false)
+        value: new History()
       });
     }
     if (!origin.hasOwnProperty("undo")) {
