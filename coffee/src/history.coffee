@@ -15,9 +15,78 @@
 	Basic helper functions
 	###
 
+	###
+	# Checks if given value is type of something
+	###
 
-	isType: ( val, type ) ->
+	isType = ( val, type ) ->
+		if val == undefined or val == null
+			return String val
+		classToType =
+			'[object Boolean]': 'boolean'
+			'[object Number]': 'number'
+			'[object String]': 'string'
+			'[object Function]': 'function'
+			'[object Array]': 'array'
+			'[object Date]': 'date'
+			'[object RegExp]': 'regexp'
+			'[object Object]': 'object'
+			'[object Null]': 'null'
+			'[object Undefined]': 'undefined'
 
+		classToType[Object::toString.call(val)] is type
+
+	fixNumber = ( val ) ->
+		val = +val if isType( val, "number" )
+		return val
+
+	###
+	# Reads value from object through path
+	# @param obj {Object}
+	# @param path {String} - e.g. 'a.foo.1.bar'
+	###
+
+	deepGet= (obj, path) ->
+		# reversing the path to use Array::pop()
+		path = (path.split ".").reverse().map( fixNumber ) if not isType( path, "array" )
+		key = path.pop()
+
+		# if we reach the end of the path, or the current value is undefined
+		# return the current value
+		if path.length is 0 or not Object::hasOwnProperty.call(obj, key)
+			return obj[key]
+
+		deepGet obj[key], path
+
+	###
+	# Writes value to object through path
+	# @param obj {Object}
+	# @param path {String} - e.g. 'a.foo.bar'
+	# @param value {Mixed}
+	# @param create {Boolean} - whether it should build non-existent tree or not
+	###
+
+	deepSet: (obj, path, value, create) ->
+		create = true if not create? or create is undefined
+		# reversing the path to use Array::pop()
+		path = (path.split ".").reverse().map( fixNumber ) if not isType( path, "array" )
+		key = path.pop()
+
+		if path.length is 0
+			return obj[key] = value
+
+		if not Object::hasOwnProperty.call(obj, key) or obj[key] is undefined
+			if create is on
+				# if next key is number create an array, else create object
+				if isType( path[path.length-1], "number" )
+					obj[key] = []
+				else
+					obj[key] = {}
+			else 
+				throw new Error("Value not set, because creation is set to false!")
+
+		deepSet obj[key], path, value, create
+		return
 
 
 	###
@@ -41,9 +110,9 @@
 		# get the next step from backwards history
 		step = @__History__._backwards.pop()
 		# save current state to forwards history
-		@__History__._forwards.push key: step.key, value: @[step.key]
+		@__History__._forwards.push path: step.path, value: deepGet( @, step.path )
 		# set current state
-		@[step.key] = step.value
+		deepSet( @, step.path, step.value )
 		# remove last state from backwards history, because the previous state setting created a history record
 		@__History__._backwards.pop()
 
@@ -53,9 +122,9 @@
 		# get the next step from forwards history
 		step = @__History__._forwards.pop()
 		# save current state to backwards history
-		@__History__._backwards.push key: step.key, value: @[step.key]
+		@__History__._backwards.push path: step.path, value: deepGet( @, step.path )
 		# set current state
-		@[step.key] = step.value
+		deepSet( @, step.path, step.value )
 		# remove last state from backwards history, because the previous state setting created a history record
 		@__History__._backwards.pop()
 
@@ -70,82 +139,95 @@
 
 
 
-	observe = (obj, whitelist, deep = true, extension = false, origin, path) ->
+	observe = (obj, whitelist, extension = false, deep = true, origin, path) ->
 		origin = obj if not origin? or origin is undefined
 		path = [] if not path? or path is undefined
-		path = path.split( "." ) if not ( Object::toString.call( val ) is "[object Array]" )
+		path = path.split( "." ) if not isType( path, "array" )
+
+		# extend with whitelist here if extension and deep is on
+
+		# end of extension
+
 		# if starting to record extend the object with a non-enumerable History object,
 		# which handles the overall history,
 		# and extend whitelisted values with the capability of undoing and redoing
 
-		Object.defineProperty obj, "__History__",
-			enumerable: false
-			configurable: true
-			value: new History(false)
+		# only register __History__, redo and undo, if they're not present
+		if not origin.hasOwnProperty( "__History__" )
+			Object.defineProperty origin, "__History__",
+				enumerable: false
+				configurable: true
+				value: new History(false)
 
-		# register undo property
-		Object.defineProperty obj, "undo",
-			configurable: true # set to true, than it can be removed later
-			enumerable: false
-			writable: false
-			value: (n) ->
-				# if a number passed as the first argument, redo the changes n times
-				if typeof n is "number"
+		if not origin.hasOwnProperty( "undo" )
+			Object.defineProperty origin, "undo",
+				configurable: true # set to true, than it can be removed later
+				enumerable: false
+				writable: false
+				value: (n) ->
+					n = 1 if not isType( n, "number" )
 					while n--
-						undo.call( obj )
-				else
-					undo.call( obj )
-				@
+						undo.call( origin )
+					@
 
-		# register redo property
-		Object.defineProperty obj, "redo",
-			configurable: true # set to true, than it can be removed later
-			enumerable: false
-			writable: false
-			value: (n) ->
-				# if a number passed as the first argument, redo the changes n times
-				if typeof n is "number"
+		if not origin.hasOwnProperty( "redo" )
+			Object.defineProperty origin, "redo",
+				configurable: true # set to true, than it can be removed later
+				enumerable: false
+				writable: false
+				value: (n) ->
+					n = 1 if not isType( n, "number" )
 					while n--
-						redo.call( obj )
-				else
-					redo.call( obj )
-				@
+						redo.call( origin )
+					@
 
 		keys = Object.keys( obj )
-		if whitelist? and deep is off
-			keys = whitelist
-			keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
+		# turn off whitelisting for now, only works in simple observe
+		# if whitelist? and deep is off
+		# 	keys = whitelist
+		# 	keys = ( key for key in Object.keys( obj ) when whitelist.indexOf( key ) isnt -1 ) if extension is off
 
 		for prop in keys
 			do (prop) ->
-				
 				value = obj[prop]
 				property = prop
 
-				if isType( value, 'object') or isType( value, 'array') and deep is on
-					path.push( prop )
-					observe( value, whitelist, deep, extension, origin, path.join(".") )
-				else if isType( value, 'object') or isType( value, 'array') and deep is off
-					return
+				# build up path object
+				path.push( property )
 
-				Object.defineProperty obj, prop,
-					enumerable: true
-					configurable: true
+				# observe recursively if deep observe is turned on
+				if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
+					observe( value, whitelist, extension, deep, origin, path.join(".") )
+				
+				# otherwise observe object property
+				# if deep observe is turned off, we cant observe objects and arrays
+				else 
+					Object.defineProperty obj, prop,
+						enumerable: true
+						configurable: true
+						# getter remains the same
+						get: () ->
+							prop
+						# setter modified to save old values to __History__ before
+						set: (newVal) ->
+							console.log origin
+							step = path: path.join("."), value: prop
+							origin.__History__._backwards.push step
+							prop = newVal
 
-					get: () ->
-						prop
-					set: (newVal) ->
-						step = key: property, value: prop
-						@__History__._backwards.push step
-						prop = newVal
+					# set initial value
+					obj[property] = value
 
-				obj[property] = value
+					# remove initial value set from history
+					origin.__History__._backwards.pop()
+
+				# remove last item from path to correct for next item
+				path.pop()
 				return
-
 		return
 
 	unobserve = (obj) ->
-		# remove the __History__ object
+		# remove the __History__, undo and redo
 		delete obj.__History__
 		delete obj.undo
 		delete obj.redo
@@ -153,12 +235,14 @@
 		for prop, val of obj
 			do (prop, val) ->
 				# redefine all property with current value
-				Object.defineProperty obj, prop,
-					writable: true
-					configurable: true
-					enumerable: true
-					value: val
-
+				if val? and isType( val, "object" ) or isType( val, "array" )
+					unobserve( val )
+				else
+					Object.defineProperty obj, prop,
+						writable: true
+						configurable: true
+						enumerable: true
+						value: val
 		return
 
 	return {

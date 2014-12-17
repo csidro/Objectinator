@@ -35,7 +35,7 @@ describe("objectoPatronum", function() {
       }
     };
   });
-  it("should", function() {
+  it("should reduce object", function() {
     var expecto;
     p.reducto(this.obj);
     expecto = {

@@ -11,7 +11,7 @@
   /*
   	 * ObjectoPatronum is a tree helper
    */
-  var objectoPatronum;
+  var extended, objectoPatronum;
   objectoPatronum = (function() {
     return {
       isArray: function(val) {
@@ -158,6 +158,23 @@
         };
         fn(obj);
       },
+      testReductoValues: function(val) {
+        var r, _i, _len, _ref;
+        _ref = this.reductoValues;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          r = _ref[_i];
+          if (r === val) {
+            return true;
+          }
+          if ((this.isObject(r) || this.isArray(r)) && (this.isObject(val) || this.isArray(val)) && r !== null && val !== null) {
+            console.log(r, val, typeof r, typeof val);
+            if (Object.keys(val).length === Object.keys(r).length) {
+              return true;
+            }
+          }
+        }
+        return false;
+      },
 
       /*
       		 * Builds the reductoMap
@@ -173,7 +190,7 @@
         if (!this.isArray(path)) {
           path = path.split(".");
         }
-        if (this.isObject(obj) || this.isArray(obj)) {
+        if (this.isObject(obj) || this.isArray(obj) && !this.testReductoValues(obj)) {
           keys = Object.keys(obj);
           for (_i = 0, _len = keys.length; _i < _len; _i++) {
             key = keys[_i];
@@ -183,9 +200,7 @@
           }
         } else {
           evaporesPath = path.join(".");
-          if (this.reductoValues.indexOf(obj) !== -1 || this.reductoKeys.indexOf(path.pop()) !== -1) {
-            this.reductoMap.push(evaporesPath);
-          }
+          this.reductoMap.push(evaporesPath);
         }
       },
 
@@ -207,20 +222,13 @@
       }
     };
   })();
-  return {
-    invito: objectoPatronum.invito,
-    missito: objectoPatronum.missito,
-    evapores: objectoPatronum.evapores,
-    evaporesMaxima: objectoPatronum.evaporesMaxima,
-    reparo: objectoPatronum.reparo,
-    reducto: objectoPatronum.reducto,
-    siblingumRevelio: objectoPatronum.siblingumRevelio,
-    get: objectoPatronum.invito,
-    set: objectoPatronum.missito,
-    remove: objectoPatronum.evapores,
-    removeBackwards: objectoPatronum.evaporesMaxima,
-    repair: objectoPatronum.reparo,
-    reduce: objectoPatronum.reducto,
-    getSiblings: objectoPatronum.siblingumRevelio
-  };
+  extended = objectoPatronum;
+  extended.get = objectoPatronum.invito;
+  extended.set = objectoPatronum.missito;
+  extended.remove = objectoPatronum.evapores;
+  extended.removeBackwards = objectoPatronum.evaporesMaxima;
+  extended.repair = objectoPatronum.reparo;
+  extended.reduce = objectoPatronum.reducto;
+  extended.getSiblings = objectoPatronum.siblingumRevelio;
+  return extended;
 });

@@ -23,7 +23,7 @@ describe "objectoPatronum", () ->
                         n:
                             o: undefined
 
-    it "should", () ->
+    it "should reduce object", () ->
         p.reducto( @obj )
 
         expecto = 

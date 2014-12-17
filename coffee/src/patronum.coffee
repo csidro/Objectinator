@@ -168,6 +168,17 @@
 			fn( obj )
 			return
 
+		testReductoValues: (val) ->
+			# we have to loop through to check empty objects
+			for r in @reductoValues
+				return true if r is val
+				if ( @isObject( r ) or @isArray( r ) ) and  ( @isObject( val ) or @isArray( val ) ) and r isnt null and val isnt null
+					console.log r, val, typeof r, typeof val
+					return true if Object.keys( val ).length is Object.keys( r ).length
+
+			return false
+
+
 
 		###
 		# Builds the reductoMap
@@ -178,7 +189,7 @@
 			path = [] if not path? or path is undefined
 			path = path.split( "." ) if not @isArray path
 
-			if @isObject( obj ) or @isArray( obj )
+			if @isObject( obj ) or @isArray( obj ) and not @testReductoValues( obj )
 				keys = Object.keys( obj )
 				for key in keys
 					path.push( key )
@@ -187,10 +198,9 @@
 
 			else
 				evaporesPath = path.join(".")
-				
+
 				# dont start evapores just build a reducto map
-				# @evaporesMaxima( origin, evaporesPath ) if @reductoValues.indexOf( obj ) isnt -1 or @reductoKeys.indexOf( path.pop() ) isnt -1
-				@reductoMap.push( evaporesPath ) if @reductoValues.indexOf( obj ) isnt -1 or @reductoKeys.indexOf( path.pop() ) isnt -1
+				@reductoMap.push( evaporesPath )
 			return
 
 
@@ -213,22 +223,14 @@
 			siblings
 	)()
 
-	return {
-		invito: objectoPatronum.invito
-		missito: objectoPatronum.missito
-		evapores: objectoPatronum.evapores
-		evaporesMaxima: objectoPatronum.evaporesMaxima
-		reparo: objectoPatronum.reparo
-		reducto: objectoPatronum.reducto
-		siblingumRevelio: objectoPatronum.siblingumRevelio
+	extended = objectoPatronum
+	extended.get = objectoPatronum.invito
+	extended.set = objectoPatronum.missito
+	extended.remove = objectoPatronum.evapores
+	extended.removeBackwards = objectoPatronum.evaporesMaxima
+	extended.repair = objectoPatronum.reparo
+	extended.reduce = objectoPatronum.reducto
+	extended.getSiblings = objectoPatronum.siblingumRevelio
 
-		get: objectoPatronum.invito
-		set: objectoPatronum.missito
-		remove: objectoPatronum.evapores
-		removeBackwards: objectoPatronum.evaporesMaxima
-		repair: objectoPatronum.reparo
-		reduce: objectoPatronum.reducto
-		getSiblings: objectoPatronum.siblingumRevelio
-	}
-
+	return extended
 )
