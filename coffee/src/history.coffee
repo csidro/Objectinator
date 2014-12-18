@@ -190,7 +190,7 @@
 				configurable: true
 				enumerable: false
 				writable: false
-				value: (n) ->
+				value: ( n ) ->
 					n = 1 if not isType( n, "number" )
 					while n--
 						undo.call( origin )
@@ -201,11 +201,27 @@
 				configurable: true
 				enumerable: false
 				writable: false
-				value: (n) ->
+				value: ( n ) ->
 					n = 1 if not isType( n, "number" )
 					while n--
 						redo.call( origin )
 					@
+
+		# register define function to every object
+		# if property is defined through this function,
+		# it will also be observable
+		if isType( obj, "object" ) or isType( obj, "array" )
+			Object.defineProperty obj, "define",
+				configurable: true
+				enumerable: false
+				writable: false
+				value: ( key, value ) ->
+					path.push(key)
+					savePath = path.join(".")
+					path.pop()
+					if deepGet( origin, savePath ) is undefined
+						deepSet( origin, savePath, value, true )
+					observe( origin, [savePath] )
 
 		# default to observe everything in object
 		keys = Object.keys( obj )
@@ -235,11 +251,11 @@
 							# getter remains the same
 							get: () ->
 								prop
-							# setter modified to save old values to __History__ before
-							set: (newVal) ->
+							# setter modified to save old values to __History__ before setting the new one
+							set: ( val ) ->
 								step = path: savePath, value: prop
 								origin.__History__._backwards.push step
-								prop = newVal
+								prop = val
 
 						# set initial value
 						obj[property] = value
@@ -252,7 +268,7 @@
 				return
 		return
 
-	unobserve = (obj) ->
+	unobserve = (obj, blacklist) ->
 		# remove the __History__, undo and redo
 		delete obj.__History__
 		delete obj.undo

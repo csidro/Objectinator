@@ -216,6 +216,23 @@
         }
       });
     }
+    if (isType(obj, "object") || isType(obj, "array")) {
+      Object.defineProperty(obj, "define", {
+        configurable: true,
+        enumerable: false,
+        writable: false,
+        value: function(key, value) {
+          var savePath;
+          path.push(key);
+          savePath = path.join(".");
+          path.pop();
+          if (deepGet(origin, savePath) === void 0) {
+            deepSet(origin, savePath, value, true);
+          }
+          return observe(origin, [savePath]);
+        }
+      });
+    }
     keys = Object.keys(obj);
     _fn1 = function(prop) {
       var property, savePath, value;
@@ -233,14 +250,14 @@
             get: function() {
               return prop;
             },
-            set: function(newVal) {
+            set: function(val) {
               var step;
               step = {
                 path: savePath,
                 value: prop
               };
               origin.__History__._backwards.push(step);
-              return prop = newVal;
+              return prop = val;
             }
           });
           obj[property] = value;
@@ -254,7 +271,7 @@
       _fn1(prop);
     }
   };
-  unobserve = function(obj) {
+  unobserve = function(obj, blacklist) {
     var prop, val, _fn;
     delete obj.__History__;
     delete obj.undo;
