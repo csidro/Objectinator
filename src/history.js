@@ -15,7 +15,7 @@
   /*
   	 * Checks if given value is type of something
    */
-  var History, deepGet, deepSet, fixNumber, isInList, isType, observe, redo, undo, unobserve;
+  var History, deepGet, deepSet, define, fixNumber, isInList, isType, observe, redo, remove, undo, unobserve;
   isType = function(val, type) {
     var classToType;
     classToType = {
@@ -116,6 +116,24 @@
       this._forwards = [];
     }
 
+    History.prototype.options = {
+      maxLength: 100,
+      emptyOnSet: true
+    };
+
+    History.prototype.record = function(state) {
+      if (state.type === void 0) {
+        state.type = "update";
+      }
+      this._backwards.push(state);
+      if (this.options.emptyOnSet === true) {
+        this._forwards = [];
+      }
+      if (this._backwards.length > this.options.maxLength) {
+        this._backwards.shift();
+      }
+    };
+
     return History;
 
   })();
@@ -124,24 +142,81 @@
   	 * History functions
    */
   undo = function() {
-    var step;
+    var step, temp;
+    temp = this.__History__.options.emptyOnSet;
+    this.__History__.options.emptyOnSet = false;
     step = this.__History__._backwards.pop();
     this.__History__._forwards.push({
       path: step.path,
       value: deepGet(this, step.path)
     });
-    deepSet(this, step.path, step.value);
-    return this.__History__._backwards.pop();
+    switch (step.type) {
+      case "delete":
+        define(this, step.path, step.value);
+        break;
+      case "add":
+        (function(origin, step) {
+          var key, obj, path, savePath;
+          path = step.path.split(".");
+          key = path.pop();
+          savePath = path.join(".");
+          obj = deepGet(origin, savePath);
+          return remove(origin, obj, step.path, key);
+        })(this, step);
+        break;
+      case "update":
+        deepSet(this, step.path, step.value);
+    }
+    this.__History__._backwards.pop();
+    this.__History__.options.emptyOnSet = temp;
   };
   redo = function() {
-    var step;
+    var step, temp;
+    temp = this.__History__.options.emptyOnSet;
+    this.__History__.options.emptyOnSet = false;
     step = this.__History__._forwards.pop();
     this.__History__._backwards.push({
       path: step.path,
       value: deepGet(this, step.path)
     });
-    deepSet(this, step.path, step.value);
-    return this.__History__._backwards.pop();
+    switch (step.type) {
+      case "delete":
+        (function(origin, step) {
+          var key, obj, path, savePath;
+          path = step.path.split(".");
+          key = path.pop();
+          savePath = path.join(".");
+          obj = deepGet(origin, savePath);
+          return remove(origin, obj, step.path, key);
+        })(this, step);
+        break;
+      case "add":
+        define(this, step.path, step.value);
+        break;
+      case "update":
+        deepSet(this, step.path, step.value);
+    }
+    this.__History__._backwards.pop();
+    this.__History__.options.emptyOnSet = temp;
+  };
+  define = function(origin, path, value) {
+    if (deepGet(origin, path) === void 0) {
+      deepSet(origin, path, value, true);
+    }
+    origin.__History__.record({
+      path: path,
+      value: value,
+      type: "add"
+    });
+    observe(origin, [path]);
+  };
+  remove = function(origin, obj, path, key) {
+    origin.__History__.record({
+      path: path,
+      value: obj[key],
+      type: "delete"
+    });
+    delete obj[key];
   };
 
   /*
@@ -165,7 +240,7 @@
       path = path.split(".");
     }
     savePath = path.join(".");
-    if (extension === true && isType(whitelist, array)) {
+    if (extension === true && isType(whitelist, "array")) {
       _fn = function(path) {
         if (deepGet(obj, path) === void 0) {
           deepSet(obj, path, null, true);
@@ -196,7 +271,6 @@
           while (n--) {
             undo.call(origin);
           }
-          return this;
         }
       });
     }
@@ -212,25 +286,34 @@
           while (n--) {
             redo.call(origin);
           }
-          return this;
         }
       });
     }
-    if (isType(obj, "object") || isType(obj, "array")) {
-      Object.defineProperty(obj, "define", {
-        configurable: true,
-        enumerable: false,
-        writable: false,
-        value: function(key, value) {
-          path.push(key);
-          savePath = path.join(".");
-          path.pop();
-          if (deepGet(origin, savePath) === void 0) {
-            deepSet(origin, savePath, value, true);
+    if (isType(obj, "object") || isType(obj, "array") && !obj.hasOwnProperty("define") && !obj.hasOwnProperty("remove")) {
+      (function() {
+        Object.defineProperty(obj, "define", {
+          configurable: true,
+          enumerable: false,
+          writable: false,
+          value: function(key, value) {
+            path.push(key);
+            savePath = path.join(".");
+            path.pop();
+            define(origin, savePath, value);
           }
-          return observe(origin, [savePath]);
-        }
-      });
+        });
+        return Object.defineProperty(obj, "remove", {
+          configurable: true,
+          enumerable: false,
+          writable: false,
+          value: function(key) {
+            path.push(key);
+            savePath = path.join(".");
+            path.pop();
+            remove(origin, obj, path, key);
+          }
+        });
+      })(origin, obj, path);
     }
     if (!obj.hasOwnProperty("unobserve")) {
       Object.defineProperty(obj, "unobserve", {
@@ -239,26 +322,24 @@
         writable: false,
         value: function(path) {
           if ((path == null) || path === void 0) {
-            return unobserve(origin, [savePath]);
+            unobserve(origin, [savePath]);
           } else {
-            return unobserve(obj, [path]);
+            unobserve(obj, [path]);
           }
         }
       });
     }
-    if (!obj.hasOwnProperty("remove")) {
-      Object.defineProperty(obj, "remove", {
+    if (!obj.hasOwnProperty("observe")) {
+      Object.defineProperty(obj, "observe", {
         configurable: true,
         enumerable: false,
         writable: false,
-        value: function() {
-          var step;
-          savePath = path.join(".");
-          step = {
-            path: savePath,
-            value: obj
-          };
-          return origin.__History__._backwards.push(step);
+        value: function(path) {
+          if ((path == null) || path === void 0) {
+            observe(origin, [savePath]);
+          } else {
+            observe(obj, [path]);
+          }
         }
       });
     }
@@ -285,12 +366,12 @@
                   path: savePath,
                   value: prop
                 };
-                origin.__History__._backwards.push(step);
+                origin.__History__.record(step);
                 return prop = val;
               }
             });
             obj[prop] = value;
-            return origin.__History__._backwards.pop();
+            origin.__History__._backwards.pop();
           })(origin, obj, prop, savePath);
         }
       }

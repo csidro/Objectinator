@@ -112,6 +112,20 @@
 		constructor: () ->
 			@_backwards = []
 			@_forwards = []
+		
+		options:
+			maxLength: 100
+			emptyOnSet: on
+
+		record: ( state ) ->
+			state.type = "update" if state.type is undefined
+			@_backwards.push( state )
+			# empty forward history if set
+			@_forwards = [] if @options.emptyOnSet is on
+			# remove first item in history if reached limit
+			@_backwards.shift() if @_backwards.length > @options.maxLength
+			return
+
 
 	###
 	# History functions
@@ -119,29 +133,70 @@
 
 
 	undo = () ->
+		temp = @__History__.options.emptyOnSet
+		@__History__.options.emptyOnSet = off
 		# get the next step from backwards history
 		step = @__History__._backwards.pop()
 		# save current state to forwards history
 		@__History__._forwards.push path: step.path, value: deepGet( @, step.path )
+		
 		# set current state
-		deepSet( @, step.path, step.value )
+		switch step.type
+			when "delete" then define( @, step.path, step.value )
+			when "add" then ( (origin, step) ->
+				path = step.path.split(".")
+				key = path.pop()
+				savePath = path.join(".")
+				obj = deepGet( origin, savePath )
+				remove( origin, obj, step.path, key )
+			)(@, step)
+			when "update" then deepSet( @, step.path, step.value )
+
 		# remove last state from backwards history, because the previous state setting created a history record
 		@__History__._backwards.pop()
+		@__History__.options.emptyOnSet = temp
+		return
 
 
 
 	redo = () ->
+		temp = @__History__.options.emptyOnSet
+		@__History__.options.emptyOnSet = off
 		# get the next step from forwards history
 		step = @__History__._forwards.pop()
 		# save current state to backwards history
 		@__History__._backwards.push path: step.path, value: deepGet( @, step.path )
+		
 		# set current state
-		deepSet( @, step.path, step.value )
+		switch step.type
+			when "delete" then ( (origin, step) ->
+				path = step.path.split(".")
+				key = path.pop()
+				savePath = path.join(".")
+				obj = deepGet( origin, savePath )
+				remove( origin, obj, step.path, key )
+			)(@, step)
+			when "add" then define( @, step.path, step.value )
+			when "update" then deepSet( @, step.path, step.value )
+
 		# remove last state from backwards history, because the previous state setting created a history record
 		@__History__._backwards.pop()
+		@__History__.options.emptyOnSet = temp
+		return
 
 
+	define = ( origin, path, value ) ->
+		if deepGet( origin, path ) is undefined
+			deepSet( origin, path, value, true )
+		origin.__History__.record( path: path, value: value, type: "add" )
+		observe( origin, [path] )
+		return
 
+
+	remove = ( origin, obj, path, key ) ->
+		origin.__History__.record( path: path, value: obj[key], type: "delete" )
+		delete obj[key]
+		return
 
 
 	###
@@ -159,7 +214,7 @@
 
 		# extend the object with whitelist values here if extension is on
 		# extend only if whitelist is an array
-		if extension is on and isType( whitelist, array )
+		if extension is on and isType( whitelist, "array" )
 			# handle every item in whitelist as paths, so we can define them with deepSet() easily
 			for path in whitelist
 				do ( path ) ->
@@ -194,7 +249,7 @@
 					n = 1 if not isType( n, "number" )
 					while n--
 						undo.call( origin )
-					@
+					return
 
 		if not origin.hasOwnProperty( "redo" )
 			Object.defineProperty origin, "redo",
@@ -205,26 +260,39 @@
 					n = 1 if not isType( n, "number" )
 					while n--
 						redo.call( origin )
-					@
+					return
 
-		# register define function to every object
+		# register define and remove function to every object
 		# if property is defined through this function,
-		# it will also be observable
-		
-		if isType( obj, "object" ) or isType( obj, "array" )
-			Object.defineProperty obj, "define",
-				configurable: true
-				enumerable: false
-				writable: false
-				value: ( key, value ) ->
-					path.push(key)
-					savePath = path.join(".")
-					path.pop()
-					if deepGet( origin, savePath ) is undefined
-						deepSet( origin, savePath, value, true )
-					observe( origin, [savePath] )
+		# it will also be deeply observable
+		# remove is saving current value before actually removing the item
 
-		# register observe, unobserve and remove function to everything
+		if isType( obj, "object" ) or isType( obj, "array" ) and not obj.hasOwnProperty( "define" ) and not obj.hasOwnProperty( "remove" )
+			(->
+				Object.defineProperty obj, "define",
+					configurable: true
+					enumerable: false
+					writable: false
+					value: ( key, value ) ->
+						path.push(key)
+						savePath = path.join(".")
+						path.pop()
+						define( origin, savePath, value )
+						return
+
+				Object.defineProperty obj, "remove",
+					configurable: true
+					enumerable: false
+					writable: false
+					value: ( key ) ->
+						path.push(key)
+						savePath = path.join(".")
+						path.pop()
+						remove( origin, obj, path, key )
+						return
+			)(origin, obj, path)
+
+		# register observe and unobserve function to everything
 		# unobserve is blacklisting the given path
 		if not obj.hasOwnProperty( "unobserve" )
 			Object.defineProperty obj, "unobserve",
@@ -236,17 +304,19 @@
 						unobserve( origin, [savePath] )
 					else
 						unobserve( obj, [path] )
-
-		# remove is saving current value before actually removing the item
-		if not obj.hasOwnProperty( "remove" )
-			Object.defineProperty obj, "remove",
+					return
+		
+		if not obj.hasOwnProperty( "observe" )
+			Object.defineProperty obj, "observe",
 				configurable: true
 				enumerable: false
 				writable: false
-				value: () ->
-					savePath = path.join(".")
-					step = path: savePath, value: obj
-					origin.__History__._backwards.push step
+				value: ( path ) ->
+					if not path? or path is undefined
+						observe( origin, [savePath] )
+					else
+						observe( obj, [path] )
+					return
 
 		# default to observe everything in object
 		keys = Object.keys( obj )
@@ -265,7 +335,7 @@
 					# observe recursively if deep observe is turned on 
 					if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
 						observe( value, whitelist, extension, deep, origin, savePath )
-					
+
 					# otherwise observe object property
 					# if deep observe is turned off, we cant observe objects and arrays
 					else
@@ -280,7 +350,7 @@
 								# setter modified to save old values to __History__ before setting the new one
 								set: ( val ) ->
 									step = path: savePath, value: prop
-									origin.__History__._backwards.push step
+									origin.__History__.record step
 									prop = val
 
 							# set initial value
@@ -288,7 +358,9 @@
 
 							# remove initial value set from history
 							origin.__History__._backwards.pop()
+							return
 						)(origin, obj, prop, savePath)
+
 				# remove last item from path to correct for next item
 				path.pop()
 				return
