@@ -91,7 +91,7 @@
 	# Checks if path is in a whitelisted place
 	###
 
-	isInWhitelisted = (path, whitelist) ->
+	isInList = (path, whitelist) ->
 		# if whitelist is empty or not defined, instantly whitelist path
 		return true if not whitelist? or whitelist is undefined or (whitelist.length and whitelist.length is 0)
 
@@ -99,7 +99,6 @@
 		for item in whitelist
 			# increment matches if path starts with whitelist item or vica versa
 			matches++ if path.indexOf( item ) isnt -1 or item.indexOf( path ) isnt -1
-		console.log matches, path
 		matches > 0
 
 	###
@@ -156,6 +155,7 @@
 		origin = obj if not origin? or origin is undefined
 		path = [] if not path? or path is undefined
 		path = path.split( "." ) if not isType( path, "array" )
+		savePath = path.join(".")
 
 		# extend the object with whitelist values here if extension is on
 		# extend only if whitelist is an array
@@ -210,6 +210,7 @@
 		# register define function to every object
 		# if property is defined through this function,
 		# it will also be observable
+		
 		if isType( obj, "object" ) or isType( obj, "array" )
 			Object.defineProperty obj, "define",
 				configurable: true
@@ -223,21 +224,44 @@
 						deepSet( origin, savePath, value, true )
 					observe( origin, [savePath] )
 
+		# register observe, unobserve and remove function to everything
+		# unobserve is blacklisting the given path
+		if not obj.hasOwnProperty( "unobserve" )
+			Object.defineProperty obj, "unobserve",
+				configurable: true
+				enumerable: false
+				writable: false
+				value: ( path ) ->
+					if not path? or path is undefined
+						unobserve( origin, [savePath] )
+					else
+						unobserve( obj, [path] )
+
+		# remove is saving current value before actually removing the item
+		if not obj.hasOwnProperty( "remove" )
+			Object.defineProperty obj, "remove",
+				configurable: true
+				enumerable: false
+				writable: false
+				value: () ->
+					savePath = path.join(".")
+					step = path: savePath, value: obj
+					origin.__History__._backwards.push step
+
 		# default to observe everything in object
 		keys = Object.keys( obj )
 
 		for prop in keys
 			do (prop) ->
 				value = obj[prop]
-				property = prop
 
 				# build up path object
-				path.push( property )
+				path.push( prop )
 				# define path as String not to pass by reference
 				savePath = path.join(".")
 
 				# only go forward if path is in whitelisted area
-				if isInWhitelisted( savePath, whitelist )
+				if isInList( savePath, whitelist )
 					# observe recursively if deep observe is turned on 
 					if value? and ( isType( value, 'object') or isType( value, 'array') ) and deep is on
 						observe( value, whitelist, extension, deep, origin, savePath )
@@ -245,46 +269,64 @@
 					# otherwise observe object property
 					# if deep observe is turned off, we cant observe objects and arrays
 					else
-						Object.defineProperty obj, prop,
-							enumerable: true
-							configurable: true
-							# getter remains the same
-							get: () ->
-								prop
-							# setter modified to save old values to __History__ before setting the new one
-							set: ( val ) ->
-								step = path: savePath, value: prop
-								origin.__History__._backwards.push step
-								prop = val
+						# define property in anonym function to avoid variable reference
+						((origin, obj, prop, savePath)->
+							Object.defineProperty obj, prop,
+								enumerable: true
+								configurable: true
+								# getter remains the same
+								get: () ->
+									prop
+								# setter modified to save old values to __History__ before setting the new one
+								set: ( val ) ->
+									step = path: savePath, value: prop
+									origin.__History__._backwards.push step
+									prop = val
 
-						# set initial value
-						obj[property] = value
+							# set initial value
+							obj[prop] = value
 
-						# remove initial value set from history
-						origin.__History__._backwards.pop()
-
+							# remove initial value set from history
+							origin.__History__._backwards.pop()
+						)(origin, obj, prop, savePath)
 				# remove last item from path to correct for next item
 				path.pop()
 				return
 		return
 
-	unobserve = (obj, blacklist) ->
-		# remove the __History__, undo and redo
-		delete obj.__History__
-		delete obj.undo
-		delete obj.redo
+	unobserve = (obj, blacklist, path) ->
+		path = [] if not path? or path is undefined
+		path = path.split( "." ) if not isType( path, "array" )
 
 		for prop, val of obj
 			do (prop, val) ->
-				# redefine all property with current value
-				if val? and isType( val, "object" ) or isType( val, "array" )
-					unobserve( val )
-				else
-					Object.defineProperty obj, prop,
-						writable: true
-						configurable: true
-						enumerable: true
-						value: val
+				# build up path object
+				path.push( prop )
+				# define path as String not to pass by reference
+				savePath = path.join(".")
+
+				# continue only if path is blacklistable
+				if isInList( savePath, blacklist )
+					if val? and isType( val, "object" ) or isType( val, "array" )
+						unobserve( val, blacklist, savePath )
+					else
+						# remove the history related properties
+						delete obj.__History__ if obj.hasOwnProperty( "__History__" )
+						delete obj.undo if obj.hasOwnProperty( "undo" )
+						delete obj.redo if obj.hasOwnProperty( "redo" )
+						delete obj.define if obj.hasOwnProperty( "define" )
+						delete obj.unobserve if obj.hasOwnProperty( "unobserve" )
+						
+						# redefine property with current value
+						Object.defineProperty obj, prop,
+							writable: true
+							configurable: true
+							enumerable: true
+							value: val
+				
+				# remove last item from path to correct for next item
+				path.pop()
+				return
 		return
 
 	return {
