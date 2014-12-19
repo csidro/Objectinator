@@ -403,6 +403,7 @@
 						delete obj.undo if obj.hasOwnProperty( "undo" )
 						delete obj.redo if obj.hasOwnProperty( "redo" )
 						delete obj.define if obj.hasOwnProperty( "define" )
+						delete obj.remove if obj.hasOwnProperty( "remove" )
 						delete obj.unobserve if obj.hasOwnProperty( "unobserve" )
 						
 						# redefine property with current value

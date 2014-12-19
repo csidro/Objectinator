@@ -452,6 +452,9 @@
           if (obj.hasOwnProperty("define")) {
             delete obj.define;
           }
+          if (obj.hasOwnProperty("remove")) {
+            delete obj.remove;
+          }
           if (obj.hasOwnProperty("unobserve")) {
             delete obj.unobserve;
           }
