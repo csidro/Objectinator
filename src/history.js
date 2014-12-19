@@ -118,10 +118,14 @@
 
     History.prototype.options = {
       maxLength: 100,
-      emptyOnSet: true
+      emptyOnSet: true,
+      bypassRecording: false
     };
 
     History.prototype.record = function(state) {
+      if (this.options.bypassRecording === true) {
+        return;
+      }
       if (state.type === void 0) {
         state.type = "update";
       }
@@ -143,16 +147,23 @@
    */
   undo = function() {
     var step, temp;
+    if (this.__History__._backwards.length === 0) {
+      return;
+    }
+    this.__History__.options.bypassRecording = true;
     temp = this.__History__.options.emptyOnSet;
     this.__History__.options.emptyOnSet = false;
     step = this.__History__._backwards.pop();
-    this.__History__._forwards.push({
-      path: step.path,
-      value: deepGet(this, step.path)
-    });
     switch (step.type) {
       case "delete":
-        define(this, step.path, step.value);
+        (function(origin, step) {
+          define(origin, step.path, step.value);
+          return origin.__History__._forwards.push({
+            path: step.path,
+            value: step.value,
+            type: "delete"
+          });
+        })(this, step);
         break;
       case "add":
         (function(origin, step) {
@@ -161,24 +172,36 @@
           key = path.pop();
           savePath = path.join(".");
           obj = deepGet(origin, savePath);
-          return remove(origin, obj, step.path, key);
+          remove(origin, obj, step.path, key);
+          return origin.__History__._forwards.push({
+            path: step.path,
+            value: step.value,
+            type: "add"
+          });
         })(this, step);
         break;
       case "update":
-        deepSet(this, step.path, step.value);
+        (function(origin, step) {
+          origin.__History__._forwards.push({
+            path: step.path,
+            value: deepGet(origin, step.path),
+            type: "update"
+          });
+          return deepSet(origin, step.path, step.value);
+        })(this, step);
     }
-    this.__History__._backwards.pop();
     this.__History__.options.emptyOnSet = temp;
+    this.__History__.options.bypassRecording = false;
   };
   redo = function() {
     var step, temp;
+    if (this.__History__._forwards.length === 0) {
+      return;
+    }
+    this.__History__.options.bypassRecording = true;
     temp = this.__History__.options.emptyOnSet;
     this.__History__.options.emptyOnSet = false;
     step = this.__History__._forwards.pop();
-    this.__History__._backwards.push({
-      path: step.path,
-      value: deepGet(this, step.path)
-    });
     switch (step.type) {
       case "delete":
         (function(origin, step) {
@@ -187,17 +210,36 @@
           key = path.pop();
           savePath = path.join(".");
           obj = deepGet(origin, savePath);
-          return remove(origin, obj, step.path, key);
+          remove(origin, obj, step.path, key);
+          return origin.__History__._backwards.push({
+            path: step.path,
+            value: step.value,
+            type: "delete"
+          });
         })(this, step);
         break;
       case "add":
-        define(this, step.path, step.value);
+        (function(origin, step) {
+          define(origin, step.path, step.value);
+          return origin.__History__._backwards.push({
+            path: step.path,
+            value: step.value,
+            type: "add"
+          });
+        })(this, step);
         break;
       case "update":
-        deepSet(this, step.path, step.value);
+        (function(origin, step) {
+          origin.__History__._backwards.push({
+            path: step.path,
+            value: deepGet(origin, step.path),
+            type: "update"
+          });
+          return deepSet(origin, step.path, step.value);
+        })(this, step);
     }
-    this.__History__._backwards.pop();
     this.__History__.options.emptyOnSet = temp;
+    this.__History__.options.bypassRecording = false;
   };
   define = function(origin, path, value) {
     if (deepGet(origin, path) === void 0) {
@@ -310,7 +352,7 @@
             path.push(key);
             savePath = path.join(".");
             path.pop();
-            remove(origin, obj, path, key);
+            remove(origin, obj, savePath, key);
           }
         });
       })(origin, obj, path);

@@ -116,8 +116,10 @@
 		options:
 			maxLength: 100
 			emptyOnSet: on
+			bypassRecording: off
 
 		record: ( state ) ->
+			return if @options.bypassRecording is on
 			state.type = "update" if state.type is undefined
 			@_backwards.push( state )
 			# empty forward history if set
@@ -133,40 +135,48 @@
 
 
 	undo = () ->
+		# return instantly if no record in forward history
+		return if @__History__._backwards.length is 0
+		@__History__.options.bypassRecording = on
 		temp = @__History__.options.emptyOnSet
 		@__History__.options.emptyOnSet = off
 		# get the next step from backwards history
 		step = @__History__._backwards.pop()
-		# save current state to forwards history
-		@__History__._forwards.push path: step.path, value: deepGet( @, step.path )
-		
+
 		# set current state
 		switch step.type
-			when "delete" then define( @, step.path, step.value )
+			when "delete" then ( (origin, step) ->
+				define( origin, step.path, step.value )
+				origin.__History__._forwards.push path: step.path, value: step.value, type: "delete"
+			)(@, step)
 			when "add" then ( (origin, step) ->
 				path = step.path.split(".")
 				key = path.pop()
 				savePath = path.join(".")
 				obj = deepGet( origin, savePath )
 				remove( origin, obj, step.path, key )
+				origin.__History__._forwards.push path: step.path, value: step.value, type: "add"
 			)(@, step)
-			when "update" then deepSet( @, step.path, step.value )
+			when "update" then ( (origin, step) ->
+				origin.__History__._forwards.push path: step.path, value: deepGet(origin, step.path), type: "update"
+				deepSet( origin, step.path, step.value )
+			)(@, step)
 
-		# remove last state from backwards history, because the previous state setting created a history record
-		@__History__._backwards.pop()
 		@__History__.options.emptyOnSet = temp
+		@__History__.options.bypassRecording = off
 		return
 
 
 
 	redo = () ->
+		# return instantly if no record in forward history
+		return if @__History__._forwards.length is 0
+		@__History__.options.bypassRecording = on
 		temp = @__History__.options.emptyOnSet
 		@__History__.options.emptyOnSet = off
 		# get the next step from forwards history
 		step = @__History__._forwards.pop()
-		# save current state to backwards history
-		@__History__._backwards.push path: step.path, value: deepGet( @, step.path )
-		
+
 		# set current state
 		switch step.type
 			when "delete" then ( (origin, step) ->
@@ -175,13 +185,19 @@
 				savePath = path.join(".")
 				obj = deepGet( origin, savePath )
 				remove( origin, obj, step.path, key )
+				origin.__History__._backwards.push path: step.path, value: step.value, type: "delete"
 			)(@, step)
-			when "add" then define( @, step.path, step.value )
-			when "update" then deepSet( @, step.path, step.value )
+			when "add" then ( (origin, step) ->
+				define( origin, step.path, step.value )
+				origin.__History__._backwards.push path: step.path, value: step.value, type: "add"
+			)(@, step)
+			when "update" then ( (origin, step) ->
+				origin.__History__._backwards.push path: step.path, value: deepGet(origin, step.path), type: "update"
+				deepSet( origin, step.path, step.value )
+			)(@, step)
 
-		# remove last state from backwards history, because the previous state setting created a history record
-		@__History__._backwards.pop()
 		@__History__.options.emptyOnSet = temp
+		@__History__.options.bypassRecording = off
 		return
 
 
@@ -288,7 +304,7 @@
 						path.push(key)
 						savePath = path.join(".")
 						path.pop()
-						remove( origin, obj, path, key )
+						remove( origin, obj, savePath, key )
 						return
 			)(origin, obj, path)
 
